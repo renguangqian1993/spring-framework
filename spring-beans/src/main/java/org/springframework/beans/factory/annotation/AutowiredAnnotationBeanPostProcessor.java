@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -49,7 +50,7 @@ import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.config.DependencyDescriptor;
-import org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessorAdapter;
+import org.springframework.beans.factory.config.SmartInstantiationAwareBeanPostProcessor;
 import org.springframework.beans.factory.support.LookupOverride;
 import org.springframework.beans.factory.support.MergedBeanDefinitionPostProcessor;
 import org.springframework.beans.factory.support.RootBeanDefinition;
@@ -61,7 +62,6 @@ import org.springframework.core.annotation.AnnotationAttributes;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.annotation.MergedAnnotation;
 import org.springframework.core.annotation.MergedAnnotations;
-import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
@@ -128,8 +128,8 @@ import org.springframework.util.StringUtils;
  * @see Autowired
  * @see Value
  */
-public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBeanPostProcessorAdapter
-		implements MergedBeanDefinitionPostProcessor, PriorityOrdered, BeanFactoryAware {
+public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationAwareBeanPostProcessor,
+		MergedBeanDefinitionPostProcessor, PriorityOrdered, BeanFactoryAware {
 
 	protected final Log logger = LogFactory.getLog(getClass());
 
@@ -153,7 +153,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 	/**
 	 * Create a new {@code AutowiredAnnotationBeanPostProcessor} for Spring's
-	 * standard {@link Autowired @Autowired} annotation.
+	 * standard {@link Autowired @Autowired} and {@link Value @Value} annotations.
 	 * <p>Also supports JSR-330's {@link javax.inject.Inject @Inject} annotation,
 	 * if available.
 	 */
@@ -174,9 +174,10 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 	/**
 	 * Set the 'autowired' annotation type, to be used on constructors, fields,
-	 * setter methods and arbitrary config methods.
-	 * <p>The default autowired annotation type is the Spring-provided {@link Autowired}
-	 * annotation, as well as {@link Value}.
+	 * setter methods, and arbitrary config methods.
+	 * <p>The default autowired annotation types are the Spring-provided
+	 * {@link Autowired @Autowired} and {@link Value @Value} annotations as well
+	 * as JSR-330's {@link javax.inject.Inject @Inject} annotation, if available.
 	 * <p>This setter property exists so that developers can provide their own
 	 * (non-Spring-specific) annotation type to indicate that a member is supposed
 	 * to be autowired.
@@ -189,9 +190,10 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 	/**
 	 * Set the 'autowired' annotation types, to be used on constructors, fields,
-	 * setter methods and arbitrary config methods.
-	 * <p>The default autowired annotation type is the Spring-provided {@link Autowired}
-	 * annotation, as well as {@link Value}.
+	 * setter methods, and arbitrary config methods.
+	 * <p>The default autowired annotation types are the Spring-provided
+	 * {@link Autowired @Autowired} and {@link Value @Value} annotations as well
+	 * as JSR-330's {@link javax.inject.Inject @Inject} annotation, if available.
 	 * <p>This setter property exists so that developers can provide their own
 	 * (non-Spring-specific) annotation types to indicate that a member is supposed
 	 * to be autowired.
@@ -203,7 +205,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	}
 
 	/**
-	 * Set the name of a parameter of the annotation that specifies whether it is required.
+	 * Set the name of an attribute of the annotation that specifies whether it is required.
 	 * @see #setRequiredParameterValue(boolean)
 	 */
 	public void setRequiredParameterName(String requiredParameterName) {
@@ -211,7 +213,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	}
 
 	/**
-	 * Set the boolean value that marks a dependency as required
+	 * Set the boolean value that marks a dependency as required.
 	 * <p>For example if using 'required=true' (the default), this value should be
 	 * {@code true}; but if using 'optional=false', this value should be {@code false}.
 	 * @see #setRequiredParameterName(String)
@@ -256,7 +258,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	public Constructor<?>[] determineCandidateConstructors(Class<?> beanClass, final String beanName)
 			throws BeanCreationException {
 
-		// Let's check for lookup methods here..
+		// Let's check for lookup methods here...
 		if (!this.lookupMethodsChecked.contains(beanName)) {
 			if (AnnotationUtils.isCandidateClass(beanClass, Lookup.class)) {
 				try {
@@ -268,7 +270,8 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 								Assert.state(this.beanFactory != null, "No BeanFactory available");
 								LookupOverride override = new LookupOverride(method, lookup.value());
 								try {
-									RootBeanDefinition mbd = (RootBeanDefinition) this.beanFactory.getMergedBeanDefinition(beanName);
+									RootBeanDefinition mbd = (RootBeanDefinition)
+											this.beanFactory.getMergedBeanDefinition(beanName);
 									mbd.getMethodOverrides().addOverride(override);
 								}
 								catch (NoSuchBeanDefinitionException ex) {
@@ -414,9 +417,11 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 	/**
 	 * 'Native' processing method for direct calls with an arbitrary target instance,
-	 * resolving all of its fields and methods which are annotated with {@code @Autowired}.
+	 * resolving all of its fields and methods which are annotated with one of the
+	 * configured 'autowired' annotation types.
 	 * @param bean the target instance to process
 	 * @throws BeanCreationException if autowiring failed
+	 * @see #setAutowiredAnnotationTypes(Set)
 	 */
 	public void processInjection(Object bean) throws BeanCreationException {
 		Class<?> clazz = bean.getClass();
@@ -514,7 +519,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 	@Nullable
 	private MergedAnnotation<?> findAutowiredAnnotation(AccessibleObject ao) {
-		MergedAnnotations annotations = MergedAnnotations.from(ao, SearchStrategy.INHERITED_ANNOTATIONS);
+		MergedAnnotations annotations = MergedAnnotations.from(ao);
 		for (Class<? extends Annotation> type : this.autowiredAnnotationTypes) {
 			MergedAnnotation<?> annotation = annotations.get(type);
 			if (annotation.isPresent()) {
@@ -532,7 +537,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	 * @param ann the Autowired annotation
 	 * @return whether the annotation indicates that a dependency is required
 	 */
-	@SuppressWarnings({ "deprecation", "cast" })
+	@SuppressWarnings({"deprecation", "cast"})
 	protected boolean determineRequiredStatus(MergedAnnotation<?> ann) {
 		// The following (AnnotationAttributes) cast is required on JDK 9+.
 		return determineRequiredStatus((AnnotationAttributes)
@@ -608,7 +613,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 		private final boolean required;
 
-		private volatile boolean cached = false;
+		private volatile boolean cached;
 
 		@Nullable
 		private volatile Object cachedFieldValue;
@@ -673,7 +678,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 		private final boolean required;
 
-		private volatile boolean cached = false;
+		private volatile boolean cached;
 
 		@Nullable
 		private volatile Object[] cachedMethodArguments;
@@ -695,10 +700,10 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 				arguments = resolveCachedArguments(beanName);
 			}
 			else {
-				Class<?>[] paramTypes = method.getParameterTypes();
-				arguments = new Object[paramTypes.length];
-				DependencyDescriptor[] descriptors = new DependencyDescriptor[paramTypes.length];
-				Set<String> autowiredBeans = new LinkedHashSet<>(paramTypes.length);
+				int argumentCount = method.getParameterCount();
+				arguments = new Object[argumentCount];
+				DependencyDescriptor[] descriptors = new DependencyDescriptor[argumentCount];
+				Set<String> autowiredBeans = new LinkedHashSet<>(argumentCount);
 				Assert.state(beanFactory != null, "No BeanFactory available");
 				TypeConverter typeConverter = beanFactory.getTypeConverter();
 				for (int i = 0; i < arguments.length; i++) {
@@ -721,11 +726,11 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 				synchronized (this) {
 					if (!this.cached) {
 						if (arguments != null) {
-							Object[] cachedMethodArguments = new Object[paramTypes.length];
-							System.arraycopy(descriptors, 0, cachedMethodArguments, 0, arguments.length);
+							DependencyDescriptor[] cachedMethodArguments = Arrays.copyOf(descriptors, arguments.length);
 							registerDependentBeans(beanName, autowiredBeans);
-							if (autowiredBeans.size() == paramTypes.length) {
+							if (autowiredBeans.size() == argumentCount) {
 								Iterator<String> it = autowiredBeans.iterator();
+								Class<?>[] paramTypes = method.getParameterTypes();
 								for (int i = 0; i < paramTypes.length; i++) {
 									String autowiredBeanName = it.next();
 									if (beanFactory.containsBean(autowiredBeanName) &&

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -173,7 +173,7 @@ class InternalPathPatternParser {
 
 					}
 					else if ((this.pos > (this.variableCaptureStart + 1 + (this.isCaptureTheRestVariable ? 1 : 0)) &&
-							!Character.isJavaIdentifierPart(ch))) {
+							!Character.isJavaIdentifierPart(ch) && ch != '-')) {
 						throw new PatternParseException(this.pos, this.pathPatternData,
 								PatternMessage.ILLEGAL_CHARACTER_IN_CAPTURE_DESCRIPTOR,
 								Character.toString(ch));
@@ -236,7 +236,7 @@ class InternalPathPatternParser {
 
 	/**
 	 * After processing a separator, a quick peek whether it is followed by
-	 * (and only before the end of the pattern or the next separator).
+	 * a double wildcard (and only as the last path element).
 	 */
 	private boolean peekDoubleWildcard() {
 		if ((this.pos + 2) >= this.pathPatternLength) {
@@ -244,6 +244,11 @@ class InternalPathPatternParser {
 		}
 		if (this.pathPatternData[this.pos + 1] != '*' || this.pathPatternData[this.pos + 2] != '*') {
 			return false;
+		}
+		char separator = this.parser.getPathOptions().separator();
+		if ((this.pos + 3) < this.pathPatternLength && this.pathPatternData[this.pos + 3] == separator) {
+			throw new PatternParseException(this.pos, this.pathPatternData,
+					PatternMessage.NO_MORE_DATA_EXPECTED_AFTER_CAPTURE_THE_REST);
 		}
 		return (this.pos + 3 == this.pathPatternLength);
 	}

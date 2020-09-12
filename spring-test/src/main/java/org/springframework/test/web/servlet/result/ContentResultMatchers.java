@@ -16,7 +16,9 @@
 
 package org.springframework.test.web.servlet.result;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.transform.Source;
 import javax.xml.transform.dom.DOMSource;
@@ -31,6 +33,7 @@ import org.springframework.test.web.servlet.ResultMatcher;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.springframework.test.util.AssertionErrors.assertEquals;
+import static org.springframework.test.util.AssertionErrors.assertNotNull;
 import static org.springframework.test.util.AssertionErrors.assertTrue;
 
 /**
@@ -77,10 +80,8 @@ public class ContentResultMatchers {
 	public ResultMatcher contentType(MediaType contentType) {
 		return result -> {
 			String actual = result.getResponse().getContentType();
-			assertTrue("Content type not set", actual != null);
-			if (actual != null) {
-				assertEquals("Content type", contentType, MediaType.parseMediaType(actual));
-			}
+			assertNotNull("Content type not set", actual);
+			assertEquals("Content type", contentType, MediaType.parseMediaType(actual));
 		};
 	}
 
@@ -99,12 +100,10 @@ public class ContentResultMatchers {
 	public ResultMatcher contentTypeCompatibleWith(MediaType contentType) {
 		return result -> {
 			String actual = result.getResponse().getContentType();
-			assertTrue("Content type not set", actual != null);
-			if (actual != null) {
-				MediaType actualContentType = MediaType.parseMediaType(actual);
-				assertTrue("Content type [" + actual + "] is not compatible with [" + contentType + "]",
-						actualContentType.isCompatibleWith(contentType));
-			}
+			assertNotNull("Content type not set", actual);
+			MediaType actualContentType = MediaType.parseMediaType(actual);
+			assertTrue("Content type [" + actual + "] is not compatible with [" + contentType + "]",
+					actualContentType.isCompatibleWith(contentType));
 		};
 	}
 
@@ -212,7 +211,7 @@ public class ContentResultMatchers {
 	 */
 	public ResultMatcher json(String jsonContent, boolean strict) {
 		return result -> {
-			String content = result.getResponse().getContentAsString();
+			String content = result.getResponse().getContentAsString(StandardCharsets.UTF_8);
 			this.jsonHelper.assertJsonEqual(jsonContent, content, strict);
 		};
 	}

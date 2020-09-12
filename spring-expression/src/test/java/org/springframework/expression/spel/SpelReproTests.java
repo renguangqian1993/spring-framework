@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.convert.TypeDescriptor;
@@ -628,12 +628,12 @@ public class SpelReproTests extends AbstractExpressionTests {
 			}
 		}
 
-		final Integer INTEGER = Integer.valueOf(7);
+		final Integer INTEGER = 7;
 
 		EvaluationContext emptyEvalContext = new StandardEvaluationContext();
 
 		List<TypeDescriptor> args = new ArrayList<>();
-		args.add(TypeDescriptor.forObject(new Integer(42)));
+		args.add(TypeDescriptor.forObject(42));
 
 		ConversionPriority1 target = new ConversionPriority1();
 		MethodExecutor me = new ReflectiveMethodResolver(true).resolve(emptyEvalContext, target, "getX", args);
@@ -1326,18 +1326,14 @@ public class SpelReproTests extends AbstractExpressionTests {
 			@Override
 			public MethodExecutor resolve(EvaluationContext context, Object targetObject, String name,
 					List<TypeDescriptor> argumentTypes) throws AccessException {
-				return new MethodExecutor() {
-					@Override
-					public TypedValue execute(EvaluationContext context, Object target, Object... arguments)
-							throws AccessException {
-						try {
-							Method method = XYZ.class.getMethod("values");
-							Object value = method.invoke(target, arguments);
-							return new TypedValue(value, new TypeDescriptor(new MethodParameter(method, -1)).narrow(value));
-						}
-						catch (Exception ex) {
-							throw new AccessException(ex.getMessage(), ex);
-						}
+				return (context1, target, arguments) -> {
+					try {
+						Method method = XYZ.class.getMethod("values");
+						Object value = method.invoke(target, arguments);
+						return new TypedValue(value, new TypeDescriptor(new MethodParameter(method, -1)).narrow(value));
+					}
+					catch (Exception ex) {
+						throw new AccessException(ex.getMessage(), ex);
 					}
 				};
 			}
@@ -1489,10 +1485,10 @@ public class SpelReproTests extends AbstractExpressionTests {
 		SpelExpressionParser parser = new SpelExpressionParser();
 		Expression expression = parser.parseExpression("T(org.springframework.expression.spel.SpelReproTests.DistanceEnforcer).from(#no)");
 		StandardEvaluationContext sec = new StandardEvaluationContext();
-		sec.setVariable("no", new Integer(1));
+		sec.setVariable("no", 1);
 		assertThat(expression.getValue(sec).toString().startsWith("Integer")).isTrue();
 		sec = new StandardEvaluationContext();
-		sec.setVariable("no", new Float(1.0));
+		sec.setVariable("no", 1.0F);
 		assertThat(expression.getValue(sec).toString().startsWith("Number")).isTrue();
 		sec = new StandardEvaluationContext();
 		sec.setVariable("no", "1.0");
@@ -1698,7 +1694,7 @@ public class SpelReproTests extends AbstractExpressionTests {
 		}
 
 		public Integer tryToInvokeWithNull2(int i) {
-			return new Integer(i);
+			return i;
 		}
 
 		public String tryToInvokeWithNull3(Integer value, String... strings) {
@@ -2261,6 +2257,7 @@ public class SpelReproTests extends AbstractExpressionTests {
 			this.string = string;
 		}
 
+		@Override
 		public boolean equals(Object other) {
 			return (this == other || (other instanceof TestClass2 &&
 					this.string.equals(((TestClass2) other).string)));

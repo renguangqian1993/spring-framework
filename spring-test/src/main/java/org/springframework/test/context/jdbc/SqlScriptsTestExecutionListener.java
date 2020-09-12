@@ -20,6 +20,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
+
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
@@ -163,6 +164,7 @@ public class SqlScriptsTestExecutionListener extends AbstractTestExecutionListen
 	/**
 	 * Get the {@code @SqlMergeMode} annotation declared on the supplied {@code element}.
 	 */
+	@Nullable
 	private SqlMergeMode getSqlMergeModeFor(AnnotatedElement element) {
 		return AnnotatedElementUtils.findMergedAnnotation(element, SqlMergeMode.class);
 	}
@@ -258,7 +260,7 @@ public class SqlScriptsTestExecutionListener extends AbstractTestExecutionListen
 					TransactionDefinition.PROPAGATION_REQUIRED);
 			TransactionAttribute txAttr = TestContextTransactionUtils.createDelegatingTransactionAttribute(
 					testContext, new DefaultTransactionAttribute(propagation));
-			new TransactionTemplate(txMgr, txAttr).execute(() -> populator.execute(finalDataSource));
+			new TransactionTemplate(txMgr, txAttr).executeWithoutResult(s -> populator.execute(finalDataSource));
 		}
 	}
 

@@ -16,10 +16,9 @@
 
 package org.springframework.cache.aspectj;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.cache.Cache;
-import org.springframework.cache.config.AbstractCacheAnnotationTests;
 import org.springframework.cache.config.CacheableService;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.GenericXmlApplicationContext;
@@ -45,7 +44,7 @@ public class AspectJCacheAnnotationTests extends AbstractCacheAnnotationTests {
 	}
 
 	@Override
-	public void testMultiEvict(CacheableService<?> service) {
+	protected void testMultiEvict(CacheableService<?> service) {
 		Object o1 = new Object();
 
 		Object r1 = service.multiCache(o1);

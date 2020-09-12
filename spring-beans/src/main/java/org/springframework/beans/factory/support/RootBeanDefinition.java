@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,9 +60,12 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 	@Nullable
 	private AnnotatedElement qualifiedElement;
 
+	/** Determines if the definition needs to be re-merged. */
+	volatile boolean stale;
+
 	boolean allowCaching = true;
 
-	boolean isFactoryMethodUnique = false;
+	boolean isFactoryMethodUnique;
 
 	@Nullable
 	volatile ResolvableType targetType;
@@ -70,6 +73,10 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 	/** Package-visible field for caching the determined Class of a given bean definition. */
 	@Nullable
 	volatile Class<?> resolvedTargetType;
+
+	/** Package-visible field for caching if the bean is a factory bean. */
+	@Nullable
+	volatile Boolean isFactoryBean;
 
 	/** Package-visible field for caching the return type of a generically typed factory method. */
 	@Nullable

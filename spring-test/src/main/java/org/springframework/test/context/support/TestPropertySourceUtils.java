@@ -71,7 +71,7 @@ public abstract class TestPropertySourceUtils {
 
 
 	static MergedTestPropertySources buildMergedTestPropertySources(Class<?> testClass) {
-		MergedAnnotations mergedAnnotations = MergedAnnotations.from(testClass, SearchStrategy.EXHAUSTIVE);
+		MergedAnnotations mergedAnnotations = MergedAnnotations.from(testClass, SearchStrategy.TYPE_HIERARCHY);
 		return (mergedAnnotations.isPresent(TestPropertySource.class) ? mergeTestPropertySources(mergedAnnotations) :
 				MergedTestPropertySources.empty());
 	}
@@ -114,7 +114,7 @@ public abstract class TestPropertySourceUtils {
 				logger.trace(String.format("Processing locations for TestPropertySource attributes %s", attrs));
 			}
 			String[] locationsArray = TestContextResourceUtils.convertToClasspathResourcePaths(
-					attrs.getDeclaringClass(), attrs.getLocations());
+					attrs.getDeclaringClass(), true, attrs.getLocations());
 			locations.addAll(0, Arrays.asList(locationsArray));
 			if (!attrs.isInheritLocations()) {
 				break;
@@ -130,9 +130,7 @@ public abstract class TestPropertySourceUtils {
 				logger.trace(String.format("Processing inlined properties for TestPropertySource attributes %s", attrs));
 			}
 			String[] attrProps = attrs.getProperties();
-			if (attrProps != null) {
-				properties.addAll(0, Arrays.asList(attrProps));
-			}
+			properties.addAll(0, Arrays.asList(attrProps));
 			if (!attrs.isInheritProperties()) {
 				break;
 			}

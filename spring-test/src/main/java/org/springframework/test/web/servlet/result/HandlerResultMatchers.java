@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.springframework.test.util.AssertionErrors.assertEquals;
+import static org.springframework.test.util.AssertionErrors.assertNotNull;
 import static org.springframework.test.util.AssertionErrors.assertTrue;
 import static org.springframework.test.util.AssertionErrors.fail;
 
@@ -65,14 +66,12 @@ public class HandlerResultMatchers {
 	public ResultMatcher handlerType(Class<?> type) {
 		return result -> {
 			Object handler = result.getHandler();
-			assertTrue("No handler", handler != null);
-			if (handler != null) {
-				Class<?> actual = handler.getClass();
-				if (HandlerMethod.class.isInstance(handler)) {
-					actual = ((HandlerMethod) handler).getBeanType();
-				}
-				assertEquals("Handler type", type, ClassUtils.getUserClass(actual));
+			assertNotNull("No handler", handler);
+			Class<?> actual = handler.getClass();
+			if (handler instanceof HandlerMethod) {
+				actual = ((HandlerMethod) handler).getBeanType();
 			}
+			assertEquals("Handler type", type, ClassUtils.getUserClass(actual));
 		};
 	}
 
@@ -148,10 +147,7 @@ public class HandlerResultMatchers {
 
 	private static HandlerMethod getHandlerMethod(MvcResult result) {
 		Object handler = result.getHandler();
-		assertTrue("No handler", handler != null);
-		if (!(handler instanceof HandlerMethod)) {
-			fail("Not a HandlerMethod: " + handler);
-		}
+		assertTrue("Not a HandlerMethod: " + handler, handler instanceof HandlerMethod);
 		return (HandlerMethod) handler;
 	}
 

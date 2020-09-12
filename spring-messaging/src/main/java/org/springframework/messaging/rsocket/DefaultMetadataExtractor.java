@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.messaging.rsocket;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -28,6 +29,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.rsocket.Payload;
 import io.rsocket.metadata.CompositeMetadata;
+import io.rsocket.metadata.RoutingMetadata;
+import io.rsocket.metadata.WellKnownMimeType;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ResolvableType;
@@ -40,14 +43,14 @@ import org.springframework.util.MimeType;
 /**
  * Default {@link MetadataExtractor} implementation that relies on
  * {@link Decoder}s to deserialize the content of metadata entries.
- * <p>By default only {@code "message/x.rsocket.routing.v0""} is extracted and
+ * <p>By default only {@code "message/x.rsocket.routing.v0"} is extracted and
  * saved under {@link MetadataExtractor#ROUTE_KEY}. Use {@code metadataToExtract}
  * methods to specify other metadata mime types of interest to extract.
  *
  * @author Rossen Stoyanchev
  * @since 5.2
  */
-public class DefaultMetadataExtractor implements MetadataExtractor {
+public class DefaultMetadataExtractor implements MetadataExtractor, MetadataExtractorRegistry {
 
 	private final List<Decoder<?>> decoders;
 
@@ -76,59 +79,14 @@ public class DefaultMetadataExtractor implements MetadataExtractor {
 		return this.decoders;
 	}
 
-
-	/**
-	 * Decode metadata entries with the given {@link MimeType} to the specified
-	 * target class, and store the decoded value in the output map under the
-	 * given name.
-	 * @param mimeType the mime type of metadata entries to extract
-	 * @param targetType the target value type to decode to
-	 * @param name assign a name for the decoded value; if not provided, then
-	 * the mime type is used as the key
-	 */
-	public void metadataToExtract(MimeType mimeType, Class<?> targetType, @Nullable String name) {
-		String key = name != null ? name : mimeType.toString();
-		metadataToExtract(mimeType, targetType, (value, map) -> map.put(key, value));
-	}
-
-	/**
-	 * Variant of {@link #metadataToExtract(MimeType, Class, String)} that accepts
-	 * {@link ParameterizedTypeReference} instead of {@link Class} for
-	 * specifying a target type with generic parameters.
-	 * @param mimeType the mime type of metadata entries to extract
-	 * @param targetType the target value type to decode to
-	 */
-	public void metadataToExtract(
-			MimeType mimeType, ParameterizedTypeReference<?> targetType, @Nullable String name) {
-
-		String key = name != null ? name : mimeType.toString();
-		metadataToExtract(mimeType, targetType, (value, map) -> map.put(key, value));
-	}
-
-	/**
-	 * Variant of {@link #metadataToExtract(MimeType, Class, String)} that allows
-	 * custom logic to be used to map the decoded value to any number of values
-	 * in the output map.
-	 * @param mimeType the mime type of metadata entries to extract
-	 * @param targetType the target value type to decode to
-	 * @param mapper custom logic to add the decoded value to the output map
-	 * @param <T> the target value type
-	 */
+	@Override
 	public <T> void metadataToExtract(
 			MimeType mimeType, Class<T> targetType, BiConsumer<T, Map<String, Object>> mapper) {
 
 		registerMetadata(mimeType, ResolvableType.forClass(targetType), mapper);
 	}
 
-	/**
-	 * Variant of {@link #metadataToExtract(MimeType, Class, BiConsumer)} that
-	 * accepts {@link ParameterizedTypeReference} instead of {@link Class} for
-	 * specifying a target type with generic parameters.
-	 * @param mimeType the mime type of metadata entries to extract
-	 * @param type the target value type to decode to
-	 * @param mapper custom logic to add the decoded value to the output map
-	 * @param <T> the target value type
-	 */
+	@Override
 	public <T> void metadataToExtract(
 			MimeType mimeType, ParameterizedTypeReference<T> type, BiConsumer<T, Map<String, Object>> mapper) {
 
@@ -153,26 +111,31 @@ public class DefaultMetadataExtractor implements MetadataExtractor {
 	@Override
 	public Map<String, Object> extract(Payload payload, MimeType metadataMimeType) {
 		Map<String, Object> result = new HashMap<>();
-		if (metadataMimeType.equals(COMPOSITE_METADATA)) {
+		if (metadataMimeType.toString().equals(WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.toString())) {
 			for (CompositeMetadata.Entry entry : new CompositeMetadata(payload.metadata(), false)) {
 				extractEntry(entry.getContent(), entry.getMimeType(), result);
 			}
 		}
 		else {
-			extractEntry(payload.metadata(), metadataMimeType.toString(), result);
+			extractEntry(payload.metadata().slice(), metadataMimeType.toString(), result);
 		}
 		return result;
 	}
 
 	private void extractEntry(ByteBuf content, @Nullable String mimeType, Map<String, Object> result) {
+		if (content.readableBytes() == 0) {
+			return;
+		}
 		EntryExtractor<?> extractor = this.registrations.get(mimeType);
 		if (extractor != null) {
 			extractor.extract(content, result);
 			return;
 		}
-		if (MetadataExtractor.ROUTING.toString().equals(mimeType)) {
-			// TODO: use rsocket-core API when available
-			result.put(MetadataExtractor.ROUTE_KEY, content.toString(StandardCharsets.UTF_8));
+		if (mimeType != null && mimeType.equals(WellKnownMimeType.MESSAGE_RSOCKET_ROUTING.getString())) {
+			Iterator<String> iterator = new RoutingMetadata(content).iterator();
+			if (iterator.hasNext()) {
+				result.put(MetadataExtractor.ROUTE_KEY, iterator.next());
+			}
 		}
 	}
 

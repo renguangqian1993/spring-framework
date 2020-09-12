@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import org.springframework.messaging.simp.SimpAttributes;
 import org.springframework.messaging.simp.SimpAttributesContextHolder;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageType;
+import org.springframework.messaging.simp.broker.OrderedMessageChannelDecorator;
 import org.springframework.messaging.simp.stomp.BufferingStompDecoder;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompDecoder;
@@ -57,6 +58,7 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.SessionLimitExceededException;
 import org.springframework.web.socket.handler.WebSocketSessionDecorator;
 import org.springframework.web.socket.sockjs.transport.SockJsSession;
@@ -221,6 +223,7 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 	/**
 	 * Handle incoming WebSocket messages from clients.
 	 */
+	@Override
 	public void handleMessageFromClient(WebSocketSession session,
 			WebSocketMessage<?> webSocketMessage, MessageChannel outputChannel) {
 
@@ -239,6 +242,10 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 
 			BufferingStompDecoder decoder = this.decoders.get(session.getId());
 			if (decoder == null) {
+				if (!session.isOpen()) {
+					logger.trace("Dropped inbound WebSocket message due to closed session");
+					return;
+				}
 				throw new IllegalStateException("No decoder for session id '" + session.getId() + "'");
 			}
 
@@ -456,6 +463,13 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 				payload = errorMessage.getPayload();
 			}
 		}
+
+		Runnable task = OrderedMessageChannelDecorator.getNextMessageTask(message);
+		if (task != null) {
+			Assert.isInstanceOf(ConcurrentWebSocketSessionDecorator.class, session);
+			((ConcurrentWebSocketSessionDecorator) session).setMessageCallback(m -> task.run());
+		}
+
 		sendToClient(session, accessor, payload);
 	}
 
@@ -651,6 +665,7 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 		return MessageBuilder.createMessage(EMPTY_PAYLOAD, headerAccessor.getMessageHeaders());
 	}
 
+
 	@Override
 	public String toString() {
 		return "StompSubProtocolHandler" + getSupportedProtocols();
@@ -688,7 +703,6 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 
 		private final AtomicInteger disconnect = new AtomicInteger();
 
-
 		public void incrementConnectCount() {
 			this.connect.incrementAndGet();
 		}
@@ -716,6 +730,7 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 			return this.disconnect.get();
 		}
 
+		@Override
 		public String toString() {
 			return "processed CONNECT(" + this.connect.get() + ")-CONNECTED(" +
 					this.connected.get() + ")-DISCONNECT(" + this.disconnect.get() + ")";

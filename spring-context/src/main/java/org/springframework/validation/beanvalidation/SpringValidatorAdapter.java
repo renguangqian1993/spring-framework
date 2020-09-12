@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+
 import javax.validation.ConstraintViolation;
 import javax.validation.ElementKind;
 import javax.validation.Path;
@@ -117,7 +118,7 @@ public class SpringValidatorAdapter implements SmartValidator, javax.validation.
 		}
 	}
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void validateValue(
 			Class<?> targetType, String fieldName, @Nullable Object value, Errors errors, Object... validationHints) {
@@ -310,7 +311,7 @@ public class SpringValidatorAdapter implements SmartValidator, javax.validation.
 	@Nullable
 	protected Object getRejectedValue(String field, ConstraintViolation<Object> violation, BindingResult bindingResult) {
 		Object invalidValue = violation.getInvalidValue();
-		if (!"".equals(field) && !field.contains("[]") &&
+		if (!field.isEmpty() && !field.contains("[]") &&
 				(invalidValue == violation.getLeafBean() || field.contains("[") || field.contains("."))) {
 			// Possibly a bean constraint with property path: retrieve the actual property value.
 			// However, explicitly avoid this for "address[]" style paths that we can't handle.
