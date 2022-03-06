@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Mono;
 
 import org.springframework.http.HttpHeaders;
@@ -54,6 +56,8 @@ import org.springframework.util.MultiValueMap;
  */
 public class ExchangeResult {
 
+	private static final Log logger = LogFactory.getLog(ExchangeResult.class);
+
 	private static final List<MediaType> PRINTABLE_MEDIA_TYPES = Arrays.asList(
 			MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML,
 			MediaType.parseMediaType("text/*"), MediaType.APPLICATION_FORM_URLENCODED);
@@ -73,7 +77,10 @@ public class ExchangeResult {
 	private final String uriTemplate;
 
 	@Nullable
-	final Object mockServerResult;
+	private final Object mockServerResult;
+
+	/** Ensure single logging, e.g. for expectAll. */
+	private boolean diagnosticsLogged;
 
 
 	/**
@@ -117,6 +124,7 @@ public class ExchangeResult {
 		this.timeout = other.timeout;
 		this.uriTemplate = other.uriTemplate;
 		this.mockServerResult = other.mockServerResult;
+		this.diagnosticsLogged = other.diagnosticsLogged;
 	}
 
 
@@ -214,16 +222,20 @@ public class ExchangeResult {
 	}
 
 	/**
-	 * Execute the given Runnable, catch any {@link AssertionError}, decorate
-	 * with {@code AssertionError} containing diagnostic information about the
-	 * request and response, and then re-throw.
+	 * Execute the given Runnable, catch any {@link AssertionError}, log details
+	 * about the request and response at ERROR level under the class log
+	 * category, and after that re-throw the error.
 	 */
 	public void assertWithDiagnostics(Runnable assertion) {
 		try {
 			assertion.run();
 		}
 		catch (AssertionError ex) {
-			throw new AssertionError(ex.getMessage() + "\n" + this, ex);
+			if (!this.diagnosticsLogged && logger.isErrorEnabled()) {
+				this.diagnosticsLogged = true;
+				logger.error("Request details for assertion failure:\n" + this);
+			}
+			throw ex;
 		}
 	}
 

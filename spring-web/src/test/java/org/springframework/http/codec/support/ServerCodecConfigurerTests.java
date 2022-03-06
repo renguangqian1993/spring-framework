@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@ import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.http.codec.json.Jackson2SmileDecoder;
 import org.springframework.http.codec.json.Jackson2SmileEncoder;
+import org.springframework.http.codec.json.KotlinSerializationJsonDecoder;
+import org.springframework.http.codec.json.KotlinSerializationJsonEncoder;
 import org.springframework.http.codec.multipart.DefaultPartHttpMessageReader;
 import org.springframework.http.codec.multipart.MultipartHttpMessageReader;
 import org.springframework.http.codec.multipart.PartHttpMessageWriter;
@@ -77,13 +79,13 @@ public class ServerCodecConfigurerTests {
 
 	private final ServerCodecConfigurer configurer = new DefaultServerCodecConfigurer();
 
-	private final AtomicInteger index = new AtomicInteger(0);
+	private final AtomicInteger index = new AtomicInteger();
 
 
 	@Test
 	public void defaultReaders() {
 		List<HttpMessageReader<?>> readers = this.configurer.getReaders();
-		assertThat(readers.size()).isEqualTo(14);
+		assertThat(readers.size()).isEqualTo(15);
 		assertThat(getNextDecoder(readers).getClass()).isEqualTo(ByteArrayDecoder.class);
 		assertThat(getNextDecoder(readers).getClass()).isEqualTo(ByteBufferDecoder.class);
 		assertThat(getNextDecoder(readers).getClass()).isEqualTo(DataBufferDecoder.class);
@@ -94,6 +96,7 @@ public class ServerCodecConfigurerTests {
 		assertThat(readers.get(this.index.getAndIncrement()).getClass()).isEqualTo(FormHttpMessageReader.class);
 		assertThat(readers.get(this.index.getAndIncrement()).getClass()).isEqualTo(DefaultPartHttpMessageReader.class);
 		assertThat(readers.get(this.index.getAndIncrement()).getClass()).isEqualTo(MultipartHttpMessageReader.class);
+		assertThat(getNextDecoder(readers).getClass()).isEqualTo(KotlinSerializationJsonDecoder.class);
 		assertThat(getNextDecoder(readers).getClass()).isEqualTo(Jackson2JsonDecoder.class);
 		assertThat(getNextDecoder(readers).getClass()).isEqualTo(Jackson2SmileDecoder.class);
 		assertThat(getNextDecoder(readers).getClass()).isEqualTo(Jaxb2XmlDecoder.class);
@@ -103,7 +106,7 @@ public class ServerCodecConfigurerTests {
 	@Test
 	public void defaultWriters() {
 		List<HttpMessageWriter<?>> writers = this.configurer.getWriters();
-		assertThat(writers.size()).isEqualTo(13);
+		assertThat(writers.size()).isEqualTo(14);
 		assertThat(getNextEncoder(writers).getClass()).isEqualTo(ByteArrayEncoder.class);
 		assertThat(getNextEncoder(writers).getClass()).isEqualTo(ByteBufferEncoder.class);
 		assertThat(getNextEncoder(writers).getClass()).isEqualTo(DataBufferEncoder.class);
@@ -112,6 +115,7 @@ public class ServerCodecConfigurerTests {
 		assertStringEncoder(getNextEncoder(writers), true);
 		assertThat(writers.get(index.getAndIncrement()).getClass()).isEqualTo(ProtobufHttpMessageWriter.class);
 		assertThat(writers.get(this.index.getAndIncrement()).getClass()).isEqualTo(PartHttpMessageWriter.class);
+		assertThat(getNextEncoder(writers).getClass()).isEqualTo(KotlinSerializationJsonEncoder.class);
 		assertThat(getNextEncoder(writers).getClass()).isEqualTo(Jackson2JsonEncoder.class);
 		assertThat(getNextEncoder(writers).getClass()).isEqualTo(Jackson2SmileEncoder.class);
 		assertThat(getNextEncoder(writers).getClass()).isEqualTo(Jaxb2XmlEncoder.class);
@@ -121,15 +125,19 @@ public class ServerCodecConfigurerTests {
 
 	@Test
 	public void jackson2EncoderOverride() {
+		Jackson2JsonDecoder decoder = new Jackson2JsonDecoder();
 		Jackson2JsonEncoder encoder = new Jackson2JsonEncoder();
+		this.configurer.defaultCodecs().jackson2JsonDecoder(decoder);
 		this.configurer.defaultCodecs().jackson2JsonEncoder(encoder);
 
-		assertThat(this.configurer.getWriters().stream()
-				.filter(writer -> ServerSentEventHttpMessageWriter.class.equals(writer.getClass()))
-				.map(writer -> (ServerSentEventHttpMessageWriter) writer)
-				.findFirst()
-				.map(ServerSentEventHttpMessageWriter::getEncoder)
-				.filter(e -> e == encoder).orElse(null)).isSameAs(encoder);
+		List<HttpMessageReader<?>> readers = this.configurer.getReaders();
+		Jackson2JsonDecoder actualDecoder = findCodec(readers, Jackson2JsonDecoder.class);
+		assertThat(actualDecoder).isSameAs(decoder);
+
+		List<HttpMessageWriter<?>> writers = this.configurer.getWriters();
+		Jackson2JsonEncoder actualEncoder = findCodec(writers, Jackson2JsonEncoder.class);
+		assertThat(actualEncoder).isSameAs(encoder);
+		assertThat(findCodec(writers, ServerSentEventHttpMessageWriter.class).getEncoder()).isSameAs(encoder);
 	}
 
 	@Test
@@ -152,6 +160,7 @@ public class ServerCodecConfigurerTests {
 		DefaultPartHttpMessageReader reader = (DefaultPartHttpMessageReader) multipartReader.getPartReader();
 		assertThat((reader).getMaxInMemorySize()).isEqualTo(size);
 
+		assertThat(((KotlinSerializationJsonDecoder) getNextDecoder(readers)).getMaxInMemorySize()).isEqualTo(size);
 		assertThat(((Jackson2JsonDecoder) getNextDecoder(readers)).getMaxInMemorySize()).isEqualTo(size);
 		assertThat(((Jackson2SmileDecoder) getNextDecoder(readers)).getMaxInMemorySize()).isEqualTo(size);
 		assertThat(((Jaxb2XmlDecoder) getNextDecoder(readers)).getMaxInMemorySize()).isEqualTo(size);
@@ -256,7 +265,19 @@ public class ServerCodecConfigurerTests {
 
 	@SuppressWarnings("unchecked")
 	private <T> T findCodec(List<?> codecs, Class<T> type) {
-		return (T) codecs.stream().filter(type::isInstance).findFirst().get();
+		return (T) codecs.stream()
+				.map(c -> {
+					if (c instanceof EncoderHttpMessageWriter) {
+						return ((EncoderHttpMessageWriter<?>) c).getEncoder();
+					}
+					else if (c instanceof DecoderHttpMessageReader) {
+						return ((DecoderHttpMessageReader<?>) c).getDecoder();
+					}
+					else {
+						return c;
+					}
+				})
+				.filter(type::isInstance).findFirst().get();
 	}
 
 	@SuppressWarnings("unchecked")

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,7 @@ import org.springframework.util.Assert;
 /**
  * Helper methods for named parameter parsing.
  *
- * <p>Only intended for internal use within Spring's R2DBC
- * framework.
+ * <p>Only intended for internal use within Spring's R2DBC framework.
  *
  * <p>References to the same parameter name are substituted with
  * the same bind marker placeholder if a {@link BindMarkersFactory} uses
@@ -48,6 +47,7 @@ import org.springframework.util.Assert;
  * @author Thomas Risberg
  * @author Juergen Hoeller
  * @author Mark Paluch
+ * @author Anton Naydenov
  * @since 5.3
  */
 abstract class NamedParameterUtils {
@@ -66,7 +66,7 @@ abstract class NamedParameterUtils {
 	 * Set of characters that qualify as parameter separators,
 	 * indicating that a parameter name in an SQL String has ended.
 	 */
-	private static final String PARAMETER_SEPARATORS = "\"':&,;()|=+-*%/\\<>^";
+	private static final String PARAMETER_SEPARATORS = "\"':&,;()|=+-*%/\\<>^[]";
 
 	/**
 	 * An index with separator flags per character code.
@@ -87,16 +87,15 @@ abstract class NamedParameterUtils {
 
 	/**
 	 * Parse the SQL statement and locate any placeholders or named parameters.
-	 * Namedparameters are substituted for a R2DBC placeholder.
-	 *
+	 * Named parameters are substituted for a R2DBC placeholder.
 	 * @param sql the SQL statement
-	 * @return the parsed statement, represented as {@link ParsedSql} instance.
+	 * @return the parsed statement, represented as {@link ParsedSql} instance
 	 */
 	public static ParsedSql parseSqlStatement(String sql) {
 		Assert.notNull(sql, "SQL must not be null");
 
 		Set<String> namedParameters = new HashSet<>();
-		String sqlToUse = sql;
+		StringBuilder sqlToUse = new StringBuilder(sql);
 		List<ParameterHolder> parameterList = new ArrayList<>();
 
 		char[] statement = sql.toCharArray();
@@ -134,20 +133,22 @@ abstract class NamedParameterUtils {
 					while (statement[j] != '}') {
 						j++;
 						if (j >= statement.length) {
-							throw new InvalidDataAccessApiUsageException("Non-terminated named parameter declaration " +
-									"at position " + i + " in statement: " + sql);
+							throw new InvalidDataAccessApiUsageException(
+									"Non-terminated named parameter declaration at position " + i +
+									" in statement: " + sql);
 						}
 						if (statement[j] == ':' || statement[j] == '{') {
-							throw new InvalidDataAccessApiUsageException("Parameter name contains invalid character '" +
-									statement[j] + "' at position " + i + " in statement: " + sql);
+							throw new InvalidDataAccessApiUsageException(
+									"Parameter name contains invalid character '" + statement[j] +
+									"' at position " + i + " in statement: " + sql);
 						}
 					}
 					if (j - i > 2) {
 						parameter = sql.substring(i + 2, j);
-						namedParameterCount = addNewNamedParameter(namedParameters,
-								namedParameterCount, parameter);
-						totalParameterCount = addNamedParameter(parameterList,
-								totalParameterCount, escapes, i, j + 1, parameter);
+						namedParameterCount = addNewNamedParameter(
+								namedParameters, namedParameterCount, parameter);
+						totalParameterCount = addNamedParameter(
+								parameterList, totalParameterCount, escapes, i, j + 1, parameter);
 					}
 					j++;
 				}
@@ -157,10 +158,10 @@ abstract class NamedParameterUtils {
 					}
 					if (j - i > 1) {
 						parameter = sql.substring(i + 1, j);
-						namedParameterCount = addNewNamedParameter(namedParameters,
-								namedParameterCount, parameter);
-						totalParameterCount = addNamedParameter(parameterList,
-								totalParameterCount, escapes, i, j, parameter);
+						namedParameterCount = addNewNamedParameter(
+								namedParameters, namedParameterCount, parameter);
+						totalParameterCount = addNamedParameter(
+								parameterList, totalParameterCount, escapes, i, j, parameter);
 					}
 				}
 				i = j - 1;
@@ -170,8 +171,7 @@ abstract class NamedParameterUtils {
 					int j = i + 1;
 					if (j < statement.length && statement[j] == ':') {
 						// escaped ":" should be skipped
-						sqlToUse = sqlToUse.substring(0, i - escapes)
-								+ sqlToUse.substring(i - escapes + 1);
+						sqlToUse.deleteCharAt(i - escapes);
 						escapes++;
 						i = i + 2;
 						continue;
@@ -180,7 +180,7 @@ abstract class NamedParameterUtils {
 			}
 			i++;
 		}
-		ParsedSql parsedSql = new ParsedSql(sqlToUse);
+		ParsedSql parsedSql = new ParsedSql(sqlToUse.toString());
 		for (ParameterHolder ph : parameterList) {
 			parsedSql.addNamedParameter(ph.getParameterName(), ph.getStartIndex(), ph.getEndIndex());
 		}
@@ -190,8 +190,8 @@ abstract class NamedParameterUtils {
 		return parsedSql;
 	}
 
-	private static int addNamedParameter(
-			List<ParameterHolder> parameterList, int totalParameterCount, int escapes, int i, int j, String parameter) {
+	private static int addNamedParameter(List<ParameterHolder> parameterList,
+			int totalParameterCount, int escapes, int i, int j, String parameter) {
 
 		parameterList.add(new ParameterHolder(parameter, i - escapes, j - escapes));
 		totalParameterCount++;
@@ -256,10 +256,9 @@ abstract class NamedParameterUtils {
 	/**
 	 * Parse the SQL statement and locate any placeholders or named parameters. Named
 	 * parameters are substituted for a R2DBC placeholder, and any select list is expanded
-	 * to the required number of placeholders. Select lists may contain an array of
-	 * objects, and in that case the placeholders will be grouped and enclosed with
-	 * parentheses. This allows for the use of "expression lists" in the SQL statement
-	 * like: <br /><br />
+	 * to the required number of placeholders. Select lists may contain an array of objects,
+	 * and in that case the placeholders will be grouped and enclosed with parentheses.
+	 * This allows for the use of "expression lists" in the SQL statement like:
 	 * {@code select id, name, state from table where (name, age) in (('John', 35), ('Ann', 50))}
 	 * <p>The parameter values passed in are used to determine the number of placeholders to
 	 * be used for a select list. Select lists should be limited to 100 or fewer elements.
@@ -269,17 +268,19 @@ abstract class NamedParameterUtils {
 	 * @param bindMarkersFactory the bind marker factory.
 	 * @param paramSource the source for named parameters
 	 * @return the expanded query that accepts bind parameters and allows for execution
-	 *         without further translation
+	 * without further translation
 	 * @see #parseSqlStatement
 	 */
 	public static PreparedOperation<String> substituteNamedParameters(ParsedSql parsedSql,
 			BindMarkersFactory bindMarkersFactory, BindParameterSource paramSource) {
+
 		NamedParameters markerHolder = new NamedParameters(bindMarkersFactory);
 		String originalSql = parsedSql.getOriginalSql();
 		List<String> paramNames = parsedSql.getParameterNames();
 		if (paramNames.isEmpty()) {
 			return new ExpandedQuery(originalSql, markerHolder, paramSource);
 		}
+
 		StringBuilder actualSql = new StringBuilder(originalSql.length());
 		int lastIndex = 0;
 		for (int i = 0; i < paramNames.size(); i++) {
@@ -302,8 +303,7 @@ abstract class NamedParameterUtils {
 						}
 						k++;
 						Object entryItem = entryIter.next();
-						if (entryItem instanceof Object[]) {
-							Object[] expressionList = (Object[]) entryItem;
+						if (entryItem instanceof Object[] expressionList) {
 							actualSql.append('(');
 							for (int m = 0; m < expressionList.length; m++) {
 								if (m > 0) {
@@ -318,7 +318,6 @@ abstract class NamedParameterUtils {
 							actualSql.append(marker.getPlaceholder(counter));
 							counter++;
 						}
-
 					}
 				}
 				else {
@@ -343,6 +342,7 @@ abstract class NamedParameterUtils {
 		return (c < 128 && separatorIndex[c]) || Character.isWhitespace(c);
 	}
 
+
 	// -------------------------------------------------------------------------
 	// Convenience methods operating on a plain SQL String
 	// -------------------------------------------------------------------------
@@ -359,6 +359,7 @@ abstract class NamedParameterUtils {
 	 */
 	public static PreparedOperation<String> substituteNamedParameters(String sql,
 			BindMarkersFactory bindMarkersFactory, BindParameterSource paramSource) {
+
 		ParsedSql parsedSql = parseSqlStatement(sql);
 		return substituteNamedParameters(parsedSql, bindMarkersFactory, paramSource);
 	}
@@ -395,10 +396,9 @@ abstract class NamedParameterUtils {
 			if (this == o) {
 				return true;
 			}
-			if (!(o instanceof ParameterHolder)) {
+			if (!(o instanceof ParameterHolder that)) {
 				return false;
 			}
-			ParameterHolder that = (ParameterHolder) o;
 			return this.startIndex == that.startIndex && this.endIndex == that.endIndex
 					&& Objects.equals(this.parameterName, that.parameterName);
 		}
@@ -407,8 +407,8 @@ abstract class NamedParameterUtils {
 		public int hashCode() {
 			return Objects.hash(this.parameterName, this.startIndex, this.endIndex);
 		}
-
 	}
+
 
 	/**
 	 * Holder for bind markers progress.
@@ -426,7 +426,6 @@ abstract class NamedParameterUtils {
 			this.identifiable = factory.identifiablePlaceholders();
 		}
 
-
 		/**
 		 * Get the {@link NamedParameter} identified by {@code namedParameter}.
 		 * Parameter objects get created if they do not yet exist.
@@ -434,20 +433,16 @@ abstract class NamedParameterUtils {
 		 * @return the named parameter
 		 */
 		NamedParameter getOrCreate(String namedParameter) {
-
 			List<NamedParameter> reference = this.references.computeIfAbsent(
-					namedParameter, ignore -> new ArrayList<>());
-
+					namedParameter, key -> new ArrayList<>());
 			if (reference.isEmpty()) {
 				NamedParameter param = new NamedParameter(namedParameter);
 				reference.add(param);
 				return param;
 			}
-
 			if (this.identifiable) {
 				return reference.get(0);
 			}
-
 			NamedParameter param = new NamedParameter(namedParameter);
 			reference.add(param);
 			return param;
@@ -458,12 +453,12 @@ abstract class NamedParameterUtils {
 			return this.references.get(name);
 		}
 
+
 		class NamedParameter {
 
 			private final String namedParameter;
 
 			private final List<BindMarker> placeholders = new ArrayList<>();
-
 
 			NamedParameter(String namedParameter) {
 				this.namedParameter = namedParameter;
@@ -475,9 +470,7 @@ abstract class NamedParameterUtils {
 			 * @return the placeholder to be used in the SQL statement
 			 */
 			String addPlaceholder() {
-
-				BindMarker bindMarker = NamedParameters.this.bindMarkers.next(
-						this.namedParameter);
+				BindMarker bindMarker = NamedParameters.this.bindMarkers.next(this.namedParameter);
 				this.placeholders.add(bindMarker);
 				return bindMarker.getPlaceholder();
 			}
@@ -487,16 +480,14 @@ abstract class NamedParameterUtils {
 			}
 
 			String getPlaceholder(int counter) {
-
 				while (counter + 1 > this.placeholders.size()) {
 					addPlaceholder();
 				}
-
 				return this.placeholders.get(counter).getPlaceholder();
 			}
 		}
-
 	}
+
 
 	/**
 	 * Expanded query that allows binding of parameters using parameter names that were
@@ -510,37 +501,26 @@ abstract class NamedParameterUtils {
 
 		private final BindParameterSource parameterSource;
 
-
-		ExpandedQuery(String expandedSql, NamedParameters parameters,
-				BindParameterSource parameterSource) {
+		ExpandedQuery(String expandedSql, NamedParameters parameters, BindParameterSource parameterSource) {
 			this.expandedSql = expandedSql;
 			this.parameters = parameters;
 			this.parameterSource = parameterSource;
 		}
 
-
 		@SuppressWarnings("unchecked")
 		public void bind(BindTarget target, String identifier, Object value) {
-
 			List<BindMarker> bindMarkers = getBindMarkers(identifier);
-
 			if (bindMarkers == null) {
 				target.bind(identifier, value);
 				return;
 			}
-
 			if (value instanceof Collection) {
 				Collection<Object> collection = (Collection<Object>) value;
-
 				Iterator<Object> iterator = collection.iterator();
 				Iterator<BindMarker> markers = bindMarkers.iterator();
-
 				while (iterator.hasNext()) {
-
 					Object valueToBind = iterator.next();
-
-					if (valueToBind instanceof Object[]) {
-						Object[] objects = (Object[]) valueToBind;
+					if (valueToBind instanceof Object[] objects) {
 						for (Object object : objects) {
 							bind(target, markers, object);
 						}
@@ -557,24 +537,19 @@ abstract class NamedParameterUtils {
 			}
 		}
 
-		private void bind(BindTarget target, Iterator<BindMarker> markers,
-				Object valueToBind) {
-
+		private void bind(BindTarget target, Iterator<BindMarker> markers, Object valueToBind) {
 			Assert.isTrue(markers.hasNext(), () -> String.format(
 					"No bind marker for value [%s] in SQL [%s]. Check that the query was expanded using the same arguments.",
 					valueToBind, toQuery()));
-
 			markers.next().bind(target, valueToBind);
 		}
 
 		public void bindNull(BindTarget target, String identifier, Class<?> valueType) {
 			List<BindMarker> bindMarkers = getBindMarkers(identifier);
-
 			if (bindMarkers == null) {
 				target.bindNull(identifier, valueType);
 				return;
 			}
-
 			for (BindMarker bindMarker : bindMarkers) {
 				bindMarker.bindNull(target, valueType);
 			}
@@ -582,19 +557,14 @@ abstract class NamedParameterUtils {
 
 		@Nullable
 		List<BindMarker> getBindMarkers(String identifier) {
-			List<NamedParameters.NamedParameter> parameters = this.parameters.getMarker(
-					identifier);
-
+			List<NamedParameters.NamedParameter> parameters = this.parameters.getMarker(identifier);
 			if (parameters == null) {
 				return null;
 			}
-
 			List<BindMarker> markers = new ArrayList<>();
-
 			for (NamedParameters.NamedParameter parameter : parameters) {
 				markers.addAll(parameter.placeholders);
 			}
-
 			return markers;
 		}
 
@@ -605,14 +575,10 @@ abstract class NamedParameterUtils {
 
 		@Override
 		public void bindTo(BindTarget target) {
-
 			for (String namedParameter : this.parameterSource.getParameterNames()) {
-
 				Object value = this.parameterSource.getValue(namedParameter);
-
 				if (value == null) {
-					bindNull(target, namedParameter,
-							this.parameterSource.getType(namedParameter));
+					bindNull(target, namedParameter, this.parameterSource.getType(namedParameter));
 				}
 				else {
 					bind(target, namedParameter, value);
@@ -624,7 +590,6 @@ abstract class NamedParameterUtils {
 		public String toQuery() {
 			return this.expandedSql;
 		}
-
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,20 @@
 
 package org.springframework.r2dbc.core
 
-import kotlinx.coroutines.reactive.awaitFirstOrNull
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 
 /**
  * Coroutines variant of [DatabaseClient.GenericExecuteSpec.then].
  *
  * @author Sebastien Deleuze
  */
+@Suppress("DEPRECATION")
 suspend fun DatabaseClient.GenericExecuteSpec.await() {
-	then().awaitFirstOrNull()
+	then().awaitSingleOrNull()
 }
 
 /**
- * Extension for [DatabaseClient.BindSpec.bind] providing a variant leveraging reified type parameters
+ * Extension for [DatabaseClient.GenericExecuteSpec.bind] providing a variant leveraging reified type parameters
  *
  * @author Mark Paluch
  * @author Ibanga Enoobong Ime
@@ -37,7 +38,7 @@ suspend fun DatabaseClient.GenericExecuteSpec.await() {
 inline fun <reified T : Any> DatabaseClient.GenericExecuteSpec.bind(index: Int, value: T?) = bind(index, Parameter.fromOrEmpty(value, T::class.java))
 
 /**
- * Extension for [DatabaseClient.BindSpec.bind] providing a variant leveraging reified type parameters
+ * Extension for [DatabaseClient.GenericExecuteSpec.bind] providing a variant leveraging reified type parameters
  *
  * @author Mark Paluch
  * @author Ibanga Enoobong Ime
