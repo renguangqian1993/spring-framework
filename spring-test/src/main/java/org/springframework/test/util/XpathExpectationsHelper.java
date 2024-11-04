@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ public class XpathExpectationsHelper {
 
 		Document document = parseXmlByteArray(content, encoding);
 		NodeList nodeList = evaluateXpath(document, XPathConstants.NODESET, NodeList.class);
-		MatcherAssert.assertThat("XPath " + this.getXpathExpression(), nodeList, matcher);
+		MatcherAssert.assertThat("XPath " + getXpathExpression(), nodeList, matcher);
 	}
 
 	/**
@@ -223,7 +223,7 @@ public class XpathExpectationsHelper {
 	/**
 	 * Parse the given XML content to a {@link Document}.
 	 * @param xml the content to parse
-	 * @param encoding optional content encoding, if provided as metadata (e.g. in HTTP headers)
+	 * @param encoding optional content encoding, if provided as metadata (for example, in HTTP headers)
 	 * @return the parsed document
 	 */
 	protected Document parseXmlByteArray(byte[] xml, @Nullable String encoding) throws Exception {

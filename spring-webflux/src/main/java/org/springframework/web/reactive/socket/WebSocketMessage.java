@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,10 @@ import java.nio.charset.StandardCharsets;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.Netty5DataBufferFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 
 /**
@@ -35,6 +37,10 @@ import org.springframework.util.ObjectUtils;
  * @since 5.0
  */
 public class WebSocketMessage {
+
+	private static final boolean reactorNetty2Present = ClassUtils.isPresent(
+			"io.netty5.handler.codec.http.websocketx.WebSocketFrame", WebSocketMessage.class.getClassLoader());
+
 
 	private final Type type;
 
@@ -120,7 +126,7 @@ public class WebSocketMessage {
 
 	/**
 	 * Retain the data buffer for the message payload, which is useful on
-	 * runtimes (e.g. Netty) with pooled buffers. A shortcut for:
+	 * runtimes (for example, Netty) with pooled buffers. A shortcut for:
 	 * <pre>
 	 * DataBuffer payload = message.getPayload();
 	 * DataBufferUtils.retain(payload);
@@ -128,13 +134,16 @@ public class WebSocketMessage {
 	 * @see DataBufferUtils#retain(DataBuffer)
 	 */
 	public WebSocketMessage retain() {
+		if (reactorNetty2Present) {
+			return ReactorNetty2Helper.retain(this);
+		}
 		DataBufferUtils.retain(this.payload);
 		return this;
 	}
 
 	/**
 	 * Release the payload {@code DataBuffer} which is useful on runtimes
-	 * (e.g. Netty) with pooled buffers such as Netty. A shortcut for:
+	 * (for example, Netty) with pooled buffers such as Netty. A shortcut for:
 	 * <pre>
 	 * DataBuffer payload = message.getPayload();
 	 * DataBufferUtils.release(payload);
@@ -148,14 +157,9 @@ public class WebSocketMessage {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof WebSocketMessage otherMessage)) {
-			return false;
-		}
-		return (this.type.equals(otherMessage.type) &&
-				ObjectUtils.nullSafeEquals(this.payload, otherMessage.payload));
+		return (this == other || (other instanceof WebSocketMessage that &&
+				this.type.equals(that.type) &&
+				ObjectUtils.nullSafeEquals(this.payload, that.payload)));
 	}
 
 	@Override
@@ -189,6 +193,22 @@ public class WebSocketMessage {
 		 * WebSocket pong.
 		 */
 		PONG
+	}
+
+
+	private static class ReactorNetty2Helper {
+
+		static WebSocketMessage retain(WebSocketMessage message) {
+			if (message.nativeMessage instanceof io.netty5.handler.codec.http.websocketx.WebSocketFrame netty5Frame) {
+				io.netty5.handler.codec.http.websocketx.WebSocketFrame frame = netty5Frame.send().receive();
+				DataBuffer payload = ((Netty5DataBufferFactory) message.payload.factory()).wrap(frame.binaryData());
+				return new WebSocketMessage(message.type, payload, frame);
+			}
+			else {
+				DataBufferUtils.retain(message.payload);
+				return message;
+			}
+		}
 	}
 
 }

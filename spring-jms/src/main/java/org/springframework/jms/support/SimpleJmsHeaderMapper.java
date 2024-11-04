@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,8 @@
 
 package org.springframework.jms.support;
 
-import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,13 +32,13 @@ import org.springframework.util.StringUtils;
 /**
  * Simple implementation of {@link JmsHeaderMapper}.
  *
- * <p>This implementation copies JMS API headers (e.g. JMSReplyTo) to and from
+ * <p>This implementation copies JMS API headers (for example, JMSReplyTo) to and from
  * {@link org.springframework.messaging.Message Messages}. Any user-defined
  * properties will also be copied from a JMS Message to a Message, and any
  * other headers on a Message (beyond the JMS API headers) will likewise
  * be copied to a JMS Message. Those other headers will be copied to the
  * general properties of a JMS Message whereas the JMS API headers are passed
- * to the appropriate setter methods (e.g. setJMSReplyTo).
+ * to the appropriate setter methods (for example, setJMSReplyTo).
  *
  * <p>Constants for the JMS API headers are defined in {@link JmsHeaders}.
  * Note that most of the JMS headers are read-only: the JMSDestination,
@@ -56,8 +54,8 @@ import org.springframework.util.StringUtils;
  */
 public class SimpleJmsHeaderMapper extends AbstractHeaderMapper<Message> implements JmsHeaderMapper {
 
-	private static final Set<Class<?>> SUPPORTED_PROPERTY_TYPES = new HashSet<>(Arrays.asList(
-			Boolean.class, Byte.class, Double.class, Float.class, Integer.class, Long.class, Short.class, String.class));
+	private static final Set<Class<?>> SUPPORTED_PROPERTY_TYPES = Set.of(Boolean.class, Byte.class,
+			Double.class, Float.class, Integer.class, Long.class, Short.class, String.class, byte[].class);
 
 
 	@Override
@@ -67,9 +65,9 @@ public class SimpleJmsHeaderMapper extends AbstractHeaderMapper<Message> impleme
 			if (jmsCorrelationId instanceof Number) {
 				jmsCorrelationId = jmsCorrelationId.toString();
 			}
-			if (jmsCorrelationId instanceof String) {
+			if (jmsCorrelationId instanceof String correlationId) {
 				try {
-					jmsMessage.setJMSCorrelationID((String) jmsCorrelationId);
+					jmsMessage.setJMSCorrelationID(correlationId);
 				}
 				catch (Exception ex) {
 					logger.debug("Failed to set JMSCorrelationID - skipping", ex);
@@ -99,7 +97,7 @@ public class SimpleJmsHeaderMapper extends AbstractHeaderMapper<Message> impleme
 					Object value = entry.getValue();
 					if (value != null && SUPPORTED_PROPERTY_TYPES.contains(value.getClass())) {
 						try {
-							String propertyName = this.fromHeaderName(headerName);
+							String propertyName = fromHeaderName(headerName);
 							jmsMessage.setObjectProperty(propertyName, value);
 						}
 						catch (Exception ex) {
@@ -211,7 +209,7 @@ public class SimpleJmsHeaderMapper extends AbstractHeaderMapper<Message> impleme
 				while (jmsPropertyNames.hasMoreElements()) {
 					String propertyName = jmsPropertyNames.nextElement().toString();
 					try {
-						String headerName = this.toHeaderName(propertyName);
+						String headerName = toHeaderName(propertyName);
 						headers.put(headerName, jmsMessage.getObjectProperty(propertyName));
 					}
 					catch (Exception ex) {

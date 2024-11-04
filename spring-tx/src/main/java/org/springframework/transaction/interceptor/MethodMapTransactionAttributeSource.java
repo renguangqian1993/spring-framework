@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,8 +73,8 @@ public class MethodMapTransactionAttributeSource
 
 
 	/**
-	 * Set a name/attribute map, consisting of "FQCN.method" method names
-	 * (e.g. "com.mycompany.mycode.MyClass.myMethod") and
+	 * Set a name/attribute map, consisting of "{@code <fully-qualified class name>.<method-name>}"
+	 * method names (for example, "com.mycompany.mycode.MyClass.myMethod") and
 	 * {@link TransactionAttribute} instances (or Strings to be converted
 	 * to {@code TransactionAttribute} instances).
 	 * <p>Intended for configuration via setter injection, typically within
@@ -134,7 +134,8 @@ public class MethodMapTransactionAttributeSource
 		Assert.notNull(name, "Name must not be null");
 		int lastDotIndex = name.lastIndexOf('.');
 		if (lastDotIndex == -1) {
-			throw new IllegalArgumentException("'" + name + "' is not a valid method name: format is FQN.methodName");
+			throw new IllegalArgumentException(
+					"'" + name + "' is not a valid method name: format is <fully-qualified class name>.<method-name>");
 		}
 		String className = name.substring(0, lastDotIndex);
 		String methodName = name.substring(lastDotIndex + 1);
@@ -152,7 +153,7 @@ public class MethodMapTransactionAttributeSource
 	public void addTransactionalMethod(Class<?> clazz, String mappedName, TransactionAttribute attr) {
 		Assert.notNull(clazz, "Class must not be null");
 		Assert.notNull(mappedName, "Mapped name must not be null");
-		String name = clazz.getName() + '.'  + mappedName;
+		String name = clazz.getName() + '.' + mappedName;
 
 		Method[] methods = clazz.getDeclaredMethods();
 		List<Method> matchingMethods = new ArrayList<>();
@@ -239,13 +240,8 @@ public class MethodMapTransactionAttributeSource
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof MethodMapTransactionAttributeSource otherTas)) {
-			return false;
-		}
-		return ObjectUtils.nullSafeEquals(this.methodMap, otherTas.methodMap);
+		return (this == other || (other instanceof MethodMapTransactionAttributeSource otherTas &&
+				ObjectUtils.nullSafeEquals(this.methodMap, otherTas.methodMap)));
 	}
 
 	@Override

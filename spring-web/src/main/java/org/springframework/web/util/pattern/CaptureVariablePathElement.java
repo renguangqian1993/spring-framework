@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,15 +59,9 @@ class CaptureVariablePathElement extends PathElement {
 		}
 		else {
 			this.variableName = new String(captureDescriptor, 1, colon - 1);
-			if (caseSensitive) {
-				this.constraintPattern = Pattern.compile(
-						new String(captureDescriptor, colon + 1, captureDescriptor.length - colon - 2));
-			}
-			else {
-				this.constraintPattern = Pattern.compile(
-						new String(captureDescriptor, colon + 1, captureDescriptor.length - colon - 2),
-						Pattern.CASE_INSENSITIVE);
-			}
+			this.constraintPattern = Pattern.compile(
+					new String(captureDescriptor, colon + 1, captureDescriptor.length - colon - 2),
+					Pattern.DOTALL | (caseSensitive ? 0 : Pattern.CASE_INSENSITIVE));
 		}
 	}
 
@@ -79,7 +73,7 @@ class CaptureVariablePathElement extends PathElement {
 			return false;
 		}
 		String candidateCapture = matchingContext.pathElementValue(pathIndex);
-		if (candidateCapture.length() == 0) {
+		if (candidateCapture.isEmpty()) {
 			return false;
 		}
 

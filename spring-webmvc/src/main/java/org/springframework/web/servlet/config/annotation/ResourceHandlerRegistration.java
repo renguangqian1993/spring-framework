@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@ package org.springframework.web.servlet.config.annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
 import org.springframework.cache.Cache;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.servlet.resource.PathResourceResolver;
 import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 
@@ -55,6 +57,9 @@ public class ResourceHandlerRegistration {
 
 	private boolean useLastModified = true;
 
+	@Nullable
+	private Function<Resource, String> etagGenerator;
+
 	private boolean optimizeLocations = false;
 
 
@@ -79,9 +84,9 @@ public class ResourceHandlerRegistration {
 	 * {@code /META-INF/public-web-resources/} directory, with resources in the
 	 * web application root taking precedence.
 	 * <p>For {@link org.springframework.core.io.UrlResource URL-based resources}
-	 * (e.g. files, HTTP URLs, etc) this method supports a special prefix to
+	 * (for example, files, HTTP URLs, etc) this method supports a special prefix to
 	 * indicate the charset associated with the URL so that relative paths
-	 * appended to it can be encoded correctly, e.g.
+	 * appended to it can be encoded correctly, for example,
 	 * {@code [charset=Windows-31J]https://example.org/path}.
 	 * @return the same {@link ResourceHandlerRegistration} instance, for
 	 * chained method invocation
@@ -139,6 +144,21 @@ public class ResourceHandlerRegistration {
 	 */
 	public ResourceHandlerRegistration setUseLastModified(boolean useLastModified) {
 		this.useLastModified = useLastModified;
+		return this;
+	}
+
+	/**
+	 * Configure a generator function that will be used to create the ETag information,
+	 * given a {@link Resource} that is about to be written to the response.
+	 * <p>This function should return a String that will be used as an argument in
+	 * {@link ServerWebExchange#checkNotModified(String)}, or {@code null} if no value
+	 * can be generated for the given resource.
+	 * @param etagGenerator the HTTP ETag generator function to use.
+	 * @since 6.1
+	 * @see ResourceHttpRequestHandler#setEtagGenerator(Function)
+	 */
+	public ResourceHandlerRegistration setEtagGenerator(@Nullable Function<Resource, String> etagGenerator) {
+		this.etagGenerator = etagGenerator;
 		return this;
 	}
 
@@ -224,6 +244,7 @@ public class ResourceHandlerRegistration {
 			handler.setCacheSeconds(this.cachePeriod);
 		}
 		handler.setUseLastModified(this.useLastModified);
+		handler.setEtagGenerator(this.etagGenerator);
 		handler.setOptimizeLocations(this.optimizeLocations);
 		return handler;
 	}

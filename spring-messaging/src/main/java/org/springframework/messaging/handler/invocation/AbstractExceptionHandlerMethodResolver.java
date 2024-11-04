@@ -67,8 +67,8 @@ public abstract class AbstractExceptionHandlerMethodResolver {
 
 	/**
 	 * Extract the exceptions this method handles. This implementation looks for
-	 * sub-classes of Throwable in the method signature.
-	 * <p>The method is static to ensure safe use from sub-class constructors.
+	 * subclasses of Throwable in the method signature.
+	 * <p>The method is static to ensure safe use from subclass constructors.
 	 */
 	@SuppressWarnings("unchecked")
 	protected static List<Class<? extends Throwable>> getExceptionsFromMethodSignature(Method method) {
@@ -112,7 +112,7 @@ public abstract class AbstractExceptionHandlerMethodResolver {
 
 	/**
 	 * Find a {@link Method} to handle the given exception type. This can be
-	 * useful if an {@link Exception} instance is not available (e.g. for tools).
+	 * useful if an {@link Exception} instance is not available (for example, for tools).
 	 * <p>Uses {@link ExceptionDepthComparator} if more than one match is found.
 	 * @param exceptionType the exception type
 	 * @return a Method to handle the exception, or {@code null} if none found

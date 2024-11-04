@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,9 +67,9 @@ import org.springframework.util.Assert;
  * </pre>
  *
  * <p>The target ResourceAdapter may be configured as a local Spring bean as well
- * (the typical case) or obtained from JNDI (e.g. on WebLogic). For the
- * example above, a local ResourceAdapter bean could be defined as follows
- * (matching the "resourceAdapter" bean reference above):
+ * (the typical case) or obtained from JNDI. For the example above, a local
+ * ResourceAdapter bean could be defined as follows (matching the "resourceAdapter"
+ * bean reference above):
  *
  * <pre class="code">
  * &lt;bean id="resourceAdapter" class="org.springframework.jca.support.ResourceAdapterFactoryBean"&gt;
@@ -87,7 +87,7 @@ import org.springframework.util.Assert;
  * <p>For a different target resource, the configuration would simply point to a
  * different ResourceAdapter and a different ActivationSpec object (which are
  * both specific to the resource provider), and possibly a different message
- * listener (e.g. a CCI {@link jakarta.resource.cci.MessageListener} for a
+ * listener (for example, a CCI {@link jakarta.resource.cci.MessageListener} for a
  * resource adapter which is based on the JCA Common Client Interface).
  *
  * <p>The asynchronous execution strategy can be customized through the
@@ -123,7 +123,7 @@ import org.springframework.util.Assert;
  *
  * <p>Alternatively, check out your resource provider's ActivationSpec object,
  * which should support local transactions through a provider-specific config flag,
- * e.g. ActiveMQActivationSpec's "useRAManagedTransaction" bean property.
+ * for example, ActiveMQActivationSpec's "useRAManagedTransaction" bean property.
  *
  * <pre class="code">
  * &lt;bean class="org.springframework.jca.endpoint.GenericMessageEndpointManager"&gt;
@@ -244,9 +244,9 @@ public class GenericMessageEndpointManager implements SmartLifecycle, Initializi
 	/**
 	 * Specify the phase in which this endpoint manager should be started
 	 * and stopped. The startup order proceeds from lowest to highest, and
-	 * the shutdown order is the reverse of that. By default this value is
-	 * Integer.MAX_VALUE meaning that this endpoint manager starts as late
-	 * as possible and stops as soon as possible.
+	 * the shutdown order is the reverse of that. By default, this value is
+	 * {@code Integer.MAX_VALUE} meaning that this endpoint manager starts
+	 * as late as possible and stops as soon as possible.
 	 */
 	public void setPhase(int phase) {
 		this.phase = phase;

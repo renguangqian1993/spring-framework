@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ package org.apache.commons.logging;
  * <p><b>Note that this Commons Logging variant is only meant to be used for
  * infrastructure logging purposes in the core framework and in extensions.</b>
  * It also serves as a common bridge for third-party libraries using the
- * Commons Logging API, e.g. Apache HttpClient, and HtmlUnit, bringing
+ * Commons Logging API, for example, Apache HttpClient, and HtmlUnit, bringing
  * them into the same consistent arrangement without any extra bridge jars.
  *
  * <p><b>For logging need in application code, prefer direct use of Log4j 2.x
@@ -70,14 +70,32 @@ public abstract class LogFactory {
 
 	/**
 	 * This method only exists for compatibility with unusual Commons Logging API
-	 * usage like e.g. {@code LogFactory.getFactory().getInstance(Class/String)}.
+	 * usage like, for example, {@code LogFactory.getFactory().getInstance(Class/String)}.
 	 * @see #getInstance(Class)
 	 * @see #getInstance(String)
 	 * @deprecated in favor of {@link #getLog(Class)}/{@link #getLog(String)}
 	 */
 	@Deprecated
 	public static LogFactory getFactory() {
-		return new LogFactory() {};
+		return new LogFactory() {
+			@Override
+			public Object getAttribute(String name) {
+				return null;
+			}
+			@Override
+			public String[] getAttributeNames() {
+				return new String[0];
+			}
+			@Override
+			public void removeAttribute(String name) {
+			}
+			@Override
+			public void setAttribute(String name, Object value) {
+			}
+			@Override
+			public void release() {
+			}
+		};
 	}
 
 	/**
@@ -100,6 +118,39 @@ public abstract class LogFactory {
 	@Deprecated
 	public Log getInstance(String name) {
 		return getLog(name);
+	}
+
+
+	// Just in case some code happens to call uncommon Commons Logging methods...
+
+	@Deprecated
+	public abstract Object getAttribute(String name);
+
+	@Deprecated
+	public abstract String[] getAttributeNames();
+
+	@Deprecated
+	public abstract void removeAttribute(String name);
+
+	@Deprecated
+	public abstract void setAttribute(String name, Object value);
+
+	@Deprecated
+	public abstract void release();
+
+	@Deprecated
+	public static void release(ClassLoader classLoader) {
+		// do nothing
+	}
+
+	@Deprecated
+	public static void releaseAll() {
+		// do nothing
+	}
+
+	@Deprecated
+	public static String objectId(Object o) {
+		return (o == null ? "null" : o.getClass().getName() + "@" + System.identityHashCode(o));
 	}
 
 }

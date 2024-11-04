@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,7 +41,7 @@ import org.springframework.util.Assert;
 
 /**
  * Resolver that delegates to the chain, and if a resource is found, it then
- * attempts to find an encoded (e.g. gzip, brotli) variant that is acceptable
+ * attempts to find an encoded (for example, gzip, brotli) variant that is acceptable
  * based on the "Accept-Encoding" request header.
  *
  * <p>The list of supported {@link #setContentCodings(List) contentCodings} can
@@ -77,7 +80,7 @@ public class EncodedResourceResolver extends AbstractResourceResolver {
 	 * given request, and that has a file present with the associated extension,
 	 * is used.
 	 * <p><strong>Note:</strong> Each coding must be associated with a file
-	 * extension via {@link #registerExtension} or {@link #setExtensions}. Also
+	 * extension via {@link #registerExtension} or {@link #setExtensions}. Also,
 	 * customizations to the list of codings here should be matched by
 	 * customizations to the same list in {@link CachingResourceResolver} to
 	 * ensure encoded variants of a resource are cached under separate keys.
@@ -127,6 +130,7 @@ public class EncodedResourceResolver extends AbstractResourceResolver {
 
 
 	@Override
+	@Nullable
 	protected Resource resolveResourceInternal(@Nullable HttpServletRequest request, String requestPath,
 			List<? extends Resource> locations, ResourceResolverChain chain) {
 
@@ -163,7 +167,7 @@ public class EncodedResourceResolver extends AbstractResourceResolver {
 	@Nullable
 	private String getAcceptEncoding(HttpServletRequest request) {
 		String header = request.getHeader(HttpHeaders.ACCEPT_ENCODING);
-		return (header != null ? header.toLowerCase() : null);
+		return (header != null ? header.toLowerCase(Locale.ROOT) : null);
 	}
 
 	private String getExtension(String coding) {
@@ -175,6 +179,7 @@ public class EncodedResourceResolver extends AbstractResourceResolver {
 	}
 
 	@Override
+	@Nullable
 	protected String resolveUrlPathInternal(String resourceUrlPath,
 			List<? extends Resource> locations, ResourceResolverChain chain) {
 
@@ -197,12 +202,6 @@ public class EncodedResourceResolver extends AbstractResourceResolver {
 			this.original = original;
 			this.coding = coding;
 			this.encoded = original.createRelative(original.getFilename() + extension);
-		}
-
-
-		@Override
-		public InputStream getInputStream() throws IOException {
-			return this.encoded.getInputStream();
 		}
 
 		@Override
@@ -241,6 +240,26 @@ public class EncodedResourceResolver extends AbstractResourceResolver {
 		}
 
 		@Override
+		public InputStream getInputStream() throws IOException {
+			return this.encoded.getInputStream();
+		}
+
+		@Override
+		public ReadableByteChannel readableChannel() throws IOException {
+			return this.encoded.readableChannel();
+		}
+
+		@Override
+		public byte[] getContentAsByteArray() throws IOException {
+			return this.encoded.getContentAsByteArray();
+		}
+
+		@Override
+		public String getContentAsString(Charset charset) throws IOException {
+			return this.encoded.getContentAsString(charset);
+		}
+
+		@Override
 		public long contentLength() throws IOException {
 			return this.encoded.contentLength();
 		}
@@ -269,8 +288,8 @@ public class EncodedResourceResolver extends AbstractResourceResolver {
 		@Override
 		public HttpHeaders getResponseHeaders() {
 			HttpHeaders headers;
-			if (this.original instanceof HttpResource) {
-				headers = ((HttpResource) this.original).getResponseHeaders();
+			if (this.original instanceof HttpResource httpResource) {
+				headers = httpResource.getResponseHeaders();
 			}
 			else {
 				headers = new HttpHeaders();

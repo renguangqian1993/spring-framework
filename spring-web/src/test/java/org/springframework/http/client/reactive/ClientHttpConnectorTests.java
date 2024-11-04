@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -37,6 +41,7 @@ import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -50,15 +55,17 @@ import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ReactiveHttpOutputMessage;
-import org.springframework.lang.NonNull;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Named.named;
 
 /**
+ * Tests for {@link ClientHttpConnector} implementations.
  * @author Arjen Poutsma
+ * @author Brian Clozel
  */
-public class ClientHttpConnectorTests {
+class ClientHttpConnectorTests {
 
 	private static final int BUF_SIZE = 1024;
 
@@ -171,7 +178,26 @@ public class ClientHttpConnectorTests {
 				.verify();
 	}
 
-	@NonNull
+	@ParameterizedConnectorTest
+	void cookieExpireValueSetAsMaxAge(ClientHttpConnector connector) {
+		ZonedDateTime tomorrow = ZonedDateTime.now(ZoneId.of("UTC")).plusDays(1);
+		String formattedDate = tomorrow.format(DateTimeFormatter.RFC_1123_DATE_TIME);
+
+		prepareResponse(response -> {
+			response.setResponseCode(200);
+			response.addHeader("Set-Cookie", "id=test; Expires= " + formattedDate + ";");
+		});
+		Mono<ClientHttpResponse> futureResponse =
+				connector.connect(HttpMethod.GET, this.server.url("/").uri(), ReactiveHttpOutputMessage::setComplete);
+		StepVerifier.create(futureResponse)
+				.assertNext(response -> {
+							assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+							assertThat(response.getCookies().getFirst("id").getMaxAge()).isCloseTo(Duration.ofDays(1), Duration.ofSeconds(10));
+						}
+				)
+				.verifyComplete();
+	}
+
 	private Buffer randomBody(int size) {
 		Buffer responseBody = new Buffer();
 		Random rnd = new Random();
@@ -202,22 +228,23 @@ public class ClientHttpConnectorTests {
 	@Target(ElementType.METHOD)
 	// Do not auto-close arguments since HttpComponentsClientHttpConnector implements
 	// AutoCloseable and is shared between parameterized test invocations.
-	@ParameterizedTest(autoCloseArguments = false)
+	@ParameterizedTest(name = "{0}", autoCloseArguments = false)
 	@MethodSource("org.springframework.http.client.reactive.ClientHttpConnectorTests#connectors")
 	public @interface ParameterizedConnectorTest {
 	}
 
-	static List<ClientHttpConnector> connectors() {
+	static List<Named<ClientHttpConnector>> connectors() {
 		return Arrays.asList(
-				new ReactorClientHttpConnector(),
-				new JettyClientHttpConnector(),
-				new HttpComponentsClientHttpConnector()
+				named("Reactor Netty", new ReactorClientHttpConnector()),
+				named("Jetty", new JettyClientHttpConnector()),
+				named("HttpComponents", new HttpComponentsClientHttpConnector()),
+				named("Jdk", new JdkClientHttpConnector())
 		);
 	}
 
 	static List<Arguments> methodsWithConnectors() {
 		List<Arguments> result = new ArrayList<>();
-		for (ClientHttpConnector connector : connectors()) {
+		for (Named<ClientHttpConnector> connector : connectors()) {
 			for (HttpMethod method : HttpMethod.values()) {
 				result.add(Arguments.of(connector, method));
 			}

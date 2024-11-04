@@ -45,7 +45,7 @@ public interface JpaVendorAdapter {
 
 	/**
 	 * Return the name of the persistence provider's root package
-	 * (e.g. "oracle.toplink.essentials"). Will be used for
+	 * (for example, "oracle.toplink.essentials"). Will be used for
 	 * excluding provider classes from temporary class overriding.
 	 * @since 2.5.2
 	 */
@@ -66,7 +66,7 @@ public interface JpaVendorAdapter {
 	 * to unit-specific characteristics such as the transaction type.
 	 * <p><b>NOTE:</b> This variant will only be invoked in case of Jakarta EE style
 	 * container bootstrapping where a {@link PersistenceUnitInfo} is present
-	 * (i.e. {@link LocalContainerEntityManagerFactoryBean}. In case of simple
+	 * (i.e. {@link LocalContainerEntityManagerFactoryBean}). In case of simple
 	 * Java SE style bootstrapping via {@link jakarta.persistence.Persistence}
 	 * (i.e. {@link LocalEntityManagerFactoryBean}), the parameter-less
 	 * {@link #getJpaPropertyMap()} variant will be called directly.
@@ -140,7 +140,7 @@ public interface JpaVendorAdapter {
 	/**
 	 * Optional callback for post-processing the native EntityManager
 	 * before active use.
-	 * <p>This can be used for setting vendor-specific parameters, e.g.
+	 * <p>This can be used for setting vendor-specific parameters, for example,
 	 * Hibernate filters, on every new EntityManager.
 	 * @since 5.3
 	 */

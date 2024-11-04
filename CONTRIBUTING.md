@@ -18,7 +18,7 @@ First off, thank you for taking the time to contribute! :+1: :tada:
 
 This project is governed by the [Spring Code of Conduct](CODE_OF_CONDUCT.adoc).
 By participating you are expected to uphold this code.
-Please report unacceptable behavior to spring-code-of-conduct@pivotal.io.
+Please report unacceptable behavior to spring-code-of-conduct@spring.io.
 
 ### How to Contribute
 
@@ -66,7 +66,7 @@ follow-up reports will need to be created as new issues with a fresh description
 #### Submit a Pull Request
 
 1. If you have not previously done so, please sign the
-[Contributor License Agreement](https://cla.pivotal.io/sign/spring). You will be reminded
+[Contributor License Agreement](https://cla.spring.io/sign/spring). You will be reminded
 automatically when you submit the PR.
 
 1. Should you create an issue first? No, just create the pull request and use the
@@ -86,7 +86,7 @@ multiple edits or corrections of the same logical change. See
 for an overview of streamlining the commit history.
 
 1. Format commit messages using 55 characters for the subject line, 72 characters per line
-for the description, followed by the issue fixed, e.g. `Closes gh-22276`. See the
+for the description, followed by the issue fixed, for example, `Closes gh-22276`. See the
 [Commit Guidelines section of Pro Git](https://git-scm.com/book/en/Distributed-Git-Contributing-to-a-Project#Commit-Guidelines)
 for best practices around commit messages, and use `git log` to see some examples.
 
@@ -123,13 +123,13 @@ define the source file coding standards we use along with some IDEA editor setti
 
 ### Reference Docs
 
-The reference documentation is in the [src/docs/asciidoc](src/docs/asciidoc) directory, in
-[Asciidoctor](https://asciidoctor.org/) format. For trivial changes, you may be able to browse,
-edit source files, and submit directly from GitHub.
+The reference documentation is authored in [Asciidoctor](https://asciidoctor.org/) format
+using [Antora](https://docs.antora.org/antora/latest/). The source files for the documentation
+reside in the [framework-docs/modules/ROOT](framework-docs/modules/ROOT) directory. For
+trivial changes, you may be able to browse, edit source files, and submit directly from GitHub.
 
-When making changes locally, execute `./gradlew asciidoctor` and then browse the result under
-`build/docs/ref-docs/html5/index.html`.
+When making changes locally, execute `./gradlew antora` and then browse the results under
+`framework-docs/build/site/index.html`.
 
 Asciidoctor also supports live editing. For more details see
 [AsciiDoc Tooling](https://docs.asciidoctor.org/asciidoctor/latest/tooling/).
-

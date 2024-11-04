@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.web.server.adapter;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
@@ -29,7 +30,8 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedCaseInsensitiveMap;
 import org.springframework.util.StringUtils;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.ForwardedHeaderUtils;
+import org.springframework.web.util.UriComponents;
 
 /**
  * Extract values from "Forwarded" and "X-Forwarded-*" headers to override
@@ -51,13 +53,15 @@ import org.springframework.web.util.UriComponentsBuilder;
  * in which case it removes but does not use the headers.
  *
  * @author Rossen Stoyanchev
+ * @author Sebastien Deleuze
  * @since 5.1
  * @see <a href="https://tools.ietf.org/html/rfc7239">https://tools.ietf.org/html/rfc7239</a>
+ * @see <a href="https://docs.spring.io/spring-framework/reference/web/webflux/reactive-spring.html#webflux-forwarded-headers">Forwarded Headers</a>
  */
 public class ForwardedHeaderTransformer implements Function<ServerHttpRequest, ServerHttpRequest> {
 
 	static final Set<String> FORWARDED_HEADER_NAMES =
-			Collections.newSetFromMap(new LinkedCaseInsensitiveMap<>(10, Locale.ENGLISH));
+			Collections.newSetFromMap(new LinkedCaseInsensitiveMap<>(10, Locale.ROOT));
 
 	static {
 		FORWARDED_HEADER_NAMES.add("Forwarded");
@@ -100,7 +104,9 @@ public class ForwardedHeaderTransformer implements Function<ServerHttpRequest, S
 		if (hasForwardedHeaders(request)) {
 			ServerHttpRequest.Builder builder = request.mutate();
 			if (!this.removeOnly) {
-				URI uri = UriComponentsBuilder.fromHttpRequest(request).build(true).toUri();
+				URI originalUri = request.getURI();
+				HttpHeaders headers = request.getHeaders();
+				URI uri = adaptFromForwardedHeaders(originalUri, headers);
 				builder.uri(uri);
 				String prefix = getForwardedPrefix(request);
 				if (prefix != null) {
@@ -108,7 +114,7 @@ public class ForwardedHeaderTransformer implements Function<ServerHttpRequest, S
 					builder.contextPath(prefix);
 				}
 				InetSocketAddress remoteAddress = request.getRemoteAddress();
-				remoteAddress = UriComponentsBuilder.parseForwardedFor(request, remoteAddress);
+				remoteAddress = ForwardedHeaderUtils.parseForwardedFor(originalUri, headers, remoteAddress);
 				if (remoteAddress != null) {
 					builder.remoteAddress(remoteAddress);
 				}
@@ -117,6 +123,17 @@ public class ForwardedHeaderTransformer implements Function<ServerHttpRequest, S
 			request = builder.build();
 		}
 		return request;
+	}
+
+	private static URI adaptFromForwardedHeaders(URI uri, HttpHeaders headers) {
+		// GH-30137: assume URI is encoded, but avoid build(true) for more lenient handling
+		UriComponents components = ForwardedHeaderUtils.adaptFromForwardedHeaders(uri, headers).build();
+		try {
+			return new URI(components.toUriString());
+		}
+		catch (URISyntaxException ex) {
+			throw new IllegalStateException("Could not create URI object: " + ex.getMessage(), ex);
+		}
 	}
 
 	/**
@@ -149,7 +166,7 @@ public class ForwardedHeaderTransformer implements Function<ServerHttpRequest, S
 		String[] rawPrefixes = StringUtils.tokenizeToStringArray(header, ",");
 		for (String rawPrefix : rawPrefixes) {
 			int endIndex = rawPrefix.length();
-			while (endIndex > 1 && rawPrefix.charAt(endIndex - 1) == '/') {
+			while (endIndex > 0 && rawPrefix.charAt(endIndex - 1) == '/') {
 				endIndex--;
 			}
 			prefix.append((endIndex != rawPrefix.length() ? rawPrefix.substring(0, endIndex) : rawPrefix));

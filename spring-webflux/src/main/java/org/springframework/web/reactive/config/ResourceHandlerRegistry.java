@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,11 +43,11 @@ import org.springframework.web.server.WebHandler;
  *
  * <p>To create a resource handler, use {@link #addResourceHandler(String...)}
  * providing the URL path patterns for which the handler should be invoked to
- * serve static resources (e.g. {@code "/resources/**"}).
+ * serve static resources (for example, {@code "/resources/**"}).
  *
  * <p>Then use additional methods on the returned
  * {@link ResourceHandlerRegistration} to add one or more locations from which
- * to serve static content from (e.g. {{@code "/"},
+ * to serve static content from (for example, {{@code "/"},
  * {@code "classpath:/META-INF/public-web-resources/"}}) or to specify a cache
  * period for served resources.
  *
@@ -148,8 +148,8 @@ public class ResourceHandlerRegistry {
 	private ResourceWebHandler getRequestHandler(ResourceHandlerRegistration registration) {
 		ResourceWebHandler handler = registration.getRequestHandler();
 		for (ResourceTransformer transformer : handler.getResourceTransformers()) {
-			if (transformer instanceof ResourceTransformerSupport) {
-				((ResourceTransformerSupport) transformer).setResourceUrlProvider(this.resourceUrlProvider);
+			if (transformer instanceof ResourceTransformerSupport resourceTransformerSupport) {
+				resourceTransformerSupport.setResourceUrlProvider(this.resourceUrlProvider);
 			}
 		}
 		try {

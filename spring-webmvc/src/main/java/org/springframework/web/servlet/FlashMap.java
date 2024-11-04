@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import org.springframework.util.StringUtils;
 /**
  * A FlashMap provides a way for one request to store attributes intended for
  * use in another. This is most commonly needed when redirecting from one URL
- * to another -- e.g. the Post/Redirect/Get pattern. A FlashMap is saved before
+ * to another -- for example, the Post/Redirect/Get pattern. A FlashMap is saved before
  * the redirect (typically in the session) and is made available after the
  * redirect and removed immediately.
  *
@@ -59,8 +59,8 @@ public final class FlashMap extends HashMap<String, Object> implements Comparabl
 
 	/**
 	 * Provide a URL path to help identify the target request for this FlashMap.
-	 * <p>The path may be absolute (e.g. "/application/resource") or relative to the
-	 * current request (e.g. "../resource").
+	 * <p>The path may be absolute (for example, "/application/resource") or relative to the
+	 * current request (for example, "../resource").
 	 */
 	public void setTargetRequestPath(@Nullable String path) {
 		this.targetRequestPath = path;
@@ -162,15 +162,10 @@ public final class FlashMap extends HashMap<String, Object> implements Comparabl
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof FlashMap otherFlashMap)) {
-			return false;
-		}
-		return (super.equals(otherFlashMap) &&
-				ObjectUtils.nullSafeEquals(this.targetRequestPath, otherFlashMap.targetRequestPath) &&
-				this.targetRequestParams.equals(otherFlashMap.targetRequestParams));
+		return (this == other || (other instanceof FlashMap that &&
+				super.equals(other) &&
+				ObjectUtils.nullSafeEquals(this.targetRequestPath, that.targetRequestPath) &&
+				this.targetRequestParams.equals(that.targetRequestParams)));
 	}
 
 	@Override

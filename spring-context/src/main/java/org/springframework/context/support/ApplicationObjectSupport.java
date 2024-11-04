@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,13 +28,13 @@ import org.springframework.util.Assert;
 
 /**
  * Convenient superclass for application objects that want to be aware of
- * the application context, e.g. for custom lookup of collaborating beans
+ * the application context, for example, for custom lookup of collaborating beans
  * or for context-specific resource access. It saves the application
  * context reference and provides an initialization callback method.
  * Furthermore, it offers numerous convenience methods for message lookup.
  *
  * <p>There is no requirement to subclass this class: It just makes things
- * a little easier if you need access to the context, e.g. for access to
+ * a little easier if you need access to the context, for example, for access to
  * file resources or to the message source. Note that many application
  * objects do not need to be aware of the application context at all,
  * as they can receive collaborating beans via bean references.
@@ -127,7 +127,7 @@ public abstract class ApplicationObjectSupport implements ApplicationContextAwar
 	/**
 	 * Subclasses can override this for custom initialization behavior.
 	 * <p>The default implementation is empty. Called by
-	 * {@link #initApplicationContext(org.springframework.context.ApplicationContext)}.
+	 * {@link #initApplicationContext(ApplicationContext)}.
 	 * @throws ApplicationContextException in case of initialization errors
 	 * @throws BeansException if thrown by ApplicationContext methods
 	 * @see #setApplicationContext

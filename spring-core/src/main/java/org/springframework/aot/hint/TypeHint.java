@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.StringJoiner;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,9 +34,11 @@ import org.springframework.util.Assert;
  * A hint that describes the need for reflection on a type.
  *
  * @author Stephane Nicoll
+ * @author Phillip Webb
+ * @author Andy Wilkinson
  * @since 6.0
  */
-public final class TypeHint {
+public final class TypeHint implements ConditionalHint {
 
 	private final TypeReference type;
 
@@ -57,7 +58,7 @@ public final class TypeHint {
 		this.type = builder.type;
 		this.reachableType = builder.reachableType;
 		this.memberCategories = Set.copyOf(builder.memberCategories);
-		this.fields = builder.fields.values().stream().map(FieldHint.Builder::build).collect(Collectors.toSet());
+		this.fields = builder.fields.stream().map(FieldHint::new).collect(Collectors.toSet());
 		this.constructors = builder.constructors.values().stream().map(ExecutableHint.Builder::build).collect(Collectors.toSet());
 		this.methods = builder.methods.values().stream().map(ExecutableHint.Builder::build).collect(Collectors.toSet());
 	}
@@ -68,10 +69,11 @@ public final class TypeHint {
 	 * @param type the type to use
 	 * @return a builder
 	 */
-	public static Builder of(TypeReference type) {
-		Assert.notNull(type, "Type must not be null");
+	static Builder of(TypeReference type) {
+		Assert.notNull(type, "'type' must not be null");
 		return new Builder(type);
 	}
+
 
 	/**
 	 * Return the type that this hint handles.
@@ -81,12 +83,8 @@ public final class TypeHint {
 		return this.type;
 	}
 
-	/**
-	 * Return the type that should be reachable for this hint to apply, or
-	 * {@code null} if this hint should always been applied.
-	 * @return the reachable type, if any
-	 */
 	@Nullable
+	@Override
 	public TypeReference getReachableType() {
 		return this.reachableType;
 	}
@@ -125,10 +123,19 @@ public final class TypeHint {
 
 	@Override
 	public String toString() {
-		return new StringJoiner(", ", TypeHint.class.getSimpleName() + "[", "]")
-				.add("type=" + this.type)
-				.toString();
+		return TypeHint.class.getSimpleName() + "[type=" + this.type + "]";
 	}
+
+	/**
+	 * Return a {@link Consumer} that applies the given {@link MemberCategory
+	 * MemberCategories} to the accepted {@link Builder}.
+	 * @param memberCategories the memberCategories to apply
+	 * @return a consumer to apply the member categories
+	 */
+	public static Consumer<Builder> builtWith(MemberCategory... memberCategories) {
+		return builder -> builder.withMembers(memberCategories);
+	}
+
 
 	/**
 	 * Builder for {@link TypeHint}.
@@ -140,7 +147,7 @@ public final class TypeHint {
 		@Nullable
 		private TypeReference reachableType;
 
-		private final Map<String, FieldHint.Builder> fields = new HashMap<>();
+		private final Set<String> fields = new HashSet<>();
 
 		private final Map<ExecutableKey, ExecutableHint.Builder> constructors = new HashMap<>();
 
@@ -148,16 +155,14 @@ public final class TypeHint {
 
 		private final Set<MemberCategory> memberCategories = new HashSet<>();
 
-
-		public Builder(TypeReference type) {
+		Builder(TypeReference type) {
 			this.type = type;
 		}
 
 		/**
-		 * Make this hint conditional on the fact that the specified type
-		 * can be resolved.
-		 * @param reachableType the type that should be reachable for this
-		 * hint to apply
+		 * Make this hint conditional on the fact that the specified type is in a
+		 * reachable code path from a static analysis point of view.
+		 * @param reachableType the type that should be reachable for this hint to apply
 		 * @return {@code this}, to facilitate method chaining
 		 */
 		public Builder onReachableType(TypeReference reachableType) {
@@ -166,15 +171,35 @@ public final class TypeHint {
 		}
 
 		/**
-		 * Register the need for reflection on the field with the specified name.
-		 * @param name the name of the field
-		 * @param fieldHint a builder to further customize the hints of this field
+		 * Make this hint conditional on the fact that the specified type is in a
+		 * reachable code path from a static analysis point of view.
+		 * @param reachableType the type that should be reachable for this hint to apply
 		 * @return {@code this}, to facilitate method chaining
 		 */
-		public Builder withField(String name, Consumer<FieldHint.Builder> fieldHint) {
-			FieldHint.Builder builder = this.fields.computeIfAbsent(name, FieldHint.Builder::new);
-			fieldHint.accept(builder);
+		public Builder onReachableType(Class<?> reachableType) {
+			this.reachableType = TypeReference.of(reachableType);
 			return this;
+		}
+
+		/**
+		 * Register the need for reflection on the field with the specified name.
+		 * @param name the name of the field
+		 * @return {@code this}, to facilitate method chaining
+		 */
+		public Builder withField(String name) {
+			this.fields.add(name);
+			return this;
+		}
+
+		/**
+		 * Register the need for reflection on the constructor with the specified
+		 * parameter types, using the specified {@link ExecutableMode}.
+		 * @param parameterTypes the parameter types of the constructor
+		 * @param mode the requested mode
+		 * @return {@code this}, to facilitate method chaining
+		 */
+		public Builder withConstructor(List<TypeReference> parameterTypes, ExecutableMode mode) {
+			return withConstructor(parameterTypes, ExecutableHint.builtWith(mode));
 		}
 
 		/**
@@ -185,12 +210,26 @@ public final class TypeHint {
 		 * constructor
 		 * @return {@code this}, to facilitate method chaining
 		 */
-		public Builder withConstructor(List<TypeReference> parameterTypes, Consumer<ExecutableHint.Builder> constructorHint) {
+		private Builder withConstructor(
+				List<TypeReference> parameterTypes, Consumer<ExecutableHint.Builder> constructorHint) {
+
 			ExecutableKey key = new ExecutableKey("<init>", parameterTypes);
 			ExecutableHint.Builder builder = this.constructors.computeIfAbsent(key,
 					k -> ExecutableHint.ofConstructor(parameterTypes));
 			constructorHint.accept(builder);
 			return this;
+		}
+
+		/**
+		 * Register the need for reflection on the method with the specified name
+		 * and parameter types, using the specified {@link ExecutableMode}.
+		 * @param name the name of the method
+		 * @param parameterTypes the parameter types of the constructor
+		 * @param mode the requested mode
+		 * @return {@code this}, to facilitate method chaining
+		 */
+		public Builder withMethod(String name, List<TypeReference> parameterTypes, ExecutableMode mode) {
+			return withMethod(name, parameterTypes, ExecutableHint.builtWith(mode));
 		}
 
 		/**
@@ -201,7 +240,8 @@ public final class TypeHint {
 		 * @param methodHint a builder to further customize the hints of this method
 		 * @return {@code this}, to facilitate method chaining
 		 */
-		public Builder withMethod(String name, List<TypeReference> parameterTypes, Consumer<ExecutableHint.Builder> methodHint) {
+		private Builder withMethod(String name, List<TypeReference> parameterTypes,
+				Consumer<ExecutableHint.Builder> methodHint) {
 			ExecutableKey key = new ExecutableKey(name, parameterTypes);
 			ExecutableHint.Builder builder = this.methods.computeIfAbsent(key,
 					k -> ExecutableHint.ofMethod(name, parameterTypes));
@@ -213,6 +253,7 @@ public final class TypeHint {
 		 * Adds the specified {@linkplain MemberCategory member categories}.
 		 * @param memberCategories the categories to apply
 		 * @return {@code this}, to facilitate method chaining
+		 * @see TypeHint#builtWith(MemberCategory...)
 		 */
 		public Builder withMembers(MemberCategory... memberCategories) {
 			this.memberCategories.addAll(Arrays.asList(memberCategories));
@@ -223,11 +264,11 @@ public final class TypeHint {
 		 * Create a {@link TypeHint} based on the state of this builder.
 		 * @return a type hint
 		 */
-		public TypeHint build() {
+		TypeHint build() {
 			return new TypeHint(this);
 		}
-
 	}
+
 
 	private static final class ExecutableKey {
 
@@ -235,30 +276,21 @@ public final class TypeHint {
 
 		private final List<String> parameterTypes;
 
-
 		private ExecutableKey(String name, List<TypeReference> parameterTypes) {
 			this.name = name;
-			this.parameterTypes = parameterTypes.stream().map(TypeReference::getCanonicalName)
-					.collect(Collectors.toList());
+			this.parameterTypes = parameterTypes.stream().map(TypeReference::getCanonicalName).toList();
 		}
 
 		@Override
-		public boolean equals(Object o) {
-			if (this == o) {
-				return true;
-			}
-			if (o == null || getClass() != o.getClass()) {
-				return false;
-			}
-			ExecutableKey that = (ExecutableKey) o;
-			return this.name.equals(that.name) && this.parameterTypes.equals(that.parameterTypes);
+		public boolean equals(@Nullable Object other) {
+			return (this == other || (other instanceof ExecutableKey that &&
+					this.name.equals(that.name) && this.parameterTypes.equals(that.parameterTypes)));
 		}
 
 		@Override
 		public int hashCode() {
 			return Objects.hash(this.name, this.parameterTypes);
 		}
-
 	}
 
 }

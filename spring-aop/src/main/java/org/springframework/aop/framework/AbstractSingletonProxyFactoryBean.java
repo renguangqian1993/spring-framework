@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ public abstract class AbstractSingletonProxyFactoryBean extends ProxyConfig
 
 	/**
 	 * Set additional interceptors (or advisors) to be applied before the
-	 * implicit transaction interceptor, e.g. a PerformanceMonitorInterceptor.
+	 * implicit transaction interceptor, for example, a PerformanceMonitorInterceptor.
 	 * <p>You may specify any AOP Alliance MethodInterceptors or other
 	 * Spring AOP Advices, as well as Spring AOP Advisors.
 	 * @see org.springframework.aop.interceptor.PerformanceMonitorInterceptor
@@ -194,8 +194,8 @@ public abstract class AbstractSingletonProxyFactoryBean extends ProxyConfig
 	 * @return a TargetSource for this object
 	 */
 	protected TargetSource createTargetSource(Object target) {
-		if (target instanceof TargetSource) {
-			return (TargetSource) target;
+		if (target instanceof TargetSource targetSource) {
+			return targetSource;
 		}
 		else {
 			return new SingletonTargetSource(target);
@@ -229,8 +229,8 @@ public abstract class AbstractSingletonProxyFactoryBean extends ProxyConfig
 		if (this.proxyInterfaces != null && this.proxyInterfaces.length == 1) {
 			return this.proxyInterfaces[0];
 		}
-		if (this.target instanceof TargetSource) {
-			return ((TargetSource) this.target).getTargetClass();
+		if (this.target instanceof TargetSource targetSource) {
+			return targetSource.getTargetClass();
 		}
 		if (this.target != null) {
 			return this.target.getClass();

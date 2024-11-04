@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
+import java.util.Objects;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.lang.Nullable;
@@ -28,9 +29,11 @@ import org.springframework.util.ObjectUtils;
 
 /**
  * A simple descriptor for an injection point, pointing to a method/constructor
- * parameter or a field. Exposed by {@link UnsatisfiedDependencyException}.
- * Also available as an argument for factory methods, reacting to the
- * requesting injection point for building a customized bean instance.
+ * parameter or a field.
+ *
+ * <p>Exposed by {@link UnsatisfiedDependencyException}. Also available as an
+ * argument for factory methods, reacting to the requesting injection point
+ * for building a customized bean instance.
  *
  * @author Juergen Hoeller
  * @since 4.3
@@ -112,7 +115,7 @@ public class InjectionPoint {
 	 * @since 5.0
 	 */
 	protected final MethodParameter obtainMethodParameter() {
-		Assert.state(this.methodParameter != null, "Neither Field nor MethodParameter");
+		Assert.state(this.methodParameter != null, "MethodParameter is not available");
 		return this.methodParameter;
 	}
 
@@ -190,7 +193,7 @@ public class InjectionPoint {
 
 	@Override
 	public int hashCode() {
-		return (this.field != null ? this.field.hashCode() : ObjectUtils.nullSafeHashCode(this.methodParameter));
+		return Objects.hash(this.field, this.methodParameter);
 	}
 
 	@Override

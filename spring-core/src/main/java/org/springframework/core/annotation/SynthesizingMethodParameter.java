@@ -55,7 +55,7 @@ public class SynthesizingMethodParameter extends MethodParameter {
 	 * return type; 0 for the first method parameter; 1 for the second method
 	 * parameter, etc.
 	 * @param nestingLevel the nesting level of the target type
-	 * (typically 1; e.g. in case of a List of Lists, 1 would indicate the
+	 * (typically 1; for example, in case of a List of Lists, 1 would indicate the
 	 * nested List, whereas 2 would indicate the element of the nested List)
 	 */
 	public SynthesizingMethodParameter(Method method, int parameterIndex, int nestingLevel) {
@@ -77,7 +77,7 @@ public class SynthesizingMethodParameter extends MethodParameter {
 	 * @param constructor the Constructor to specify a parameter for
 	 * @param parameterIndex the index of the parameter
 	 * @param nestingLevel the nesting level of the target type
-	 * (typically 1; e.g. in case of a List of Lists, 1 would indicate the
+	 * (typically 1; for example, in case of a List of Lists, 1 would indicate the
 	 * nested List, whereas 2 would indicate the element of the nested List)
 	 */
 	public SynthesizingMethodParameter(Constructor<?> constructor, int parameterIndex, int nestingLevel) {
@@ -120,11 +120,11 @@ public class SynthesizingMethodParameter extends MethodParameter {
 	 * @since 5.0
 	 */
 	public static SynthesizingMethodParameter forExecutable(Executable executable, int parameterIndex) {
-		if (executable instanceof Method) {
-			return new SynthesizingMethodParameter((Method) executable, parameterIndex);
+		if (executable instanceof Method method) {
+			return new SynthesizingMethodParameter(method, parameterIndex);
 		}
-		else if (executable instanceof Constructor) {
-			return new SynthesizingMethodParameter((Constructor<?>) executable, parameterIndex);
+		else if (executable instanceof Constructor<?> constructor) {
+			return new SynthesizingMethodParameter(constructor, parameterIndex);
 		}
 		else {
 			throw new IllegalArgumentException("Not a Method/Constructor: " + executable);

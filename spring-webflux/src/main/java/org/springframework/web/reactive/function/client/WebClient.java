@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 
+import io.micrometer.observation.ObservationConvention;
+import io.micrometer.observation.ObservationRegistry;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -35,7 +37,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.reactive.ClientHttpConnector;
@@ -256,6 +258,22 @@ public interface WebClient {
 		Builder defaultRequest(Consumer<RequestHeadersSpec<?>> defaultRequest);
 
 		/**
+		 * Register a default
+		 * {@link ResponseSpec#onStatus(Predicate, Function) status handler} to
+		 * apply to every response. Such default handlers are applied in the
+		 * order in which they are registered, and after any others that are
+		 * registered for a specific response.
+		 * <p>The default status handlers are not applied to {@code exchangeTo*()}
+		 * methods, as those variants have direct access to the client response.
+		 * @param statusPredicate to match responses with
+		 * @param exceptionFunction to map the response to an error signal
+		 * @return this builder
+		 * @since 6.0
+		 */
+		Builder defaultStatusHandler(Predicate<HttpStatusCode> statusPredicate,
+				Function<ClientResponse, Mono<? extends Throwable>> exceptionFunction);
+
+		/**
 		 * Add the given filter to the end of the filter chain.
 		 * @param filter the filter to be added to the chain
 		 */
@@ -273,7 +291,7 @@ public interface WebClient {
 		/**
 		 * Configure the {@link ClientHttpConnector} to use. This is useful for
 		 * plugging in and/or customizing options of the underlying HTTP client
-		 * library (e.g. SSL).
+		 * library (for example, SSL).
 		 * <p>By default this is set to
 		 * {@link org.springframework.http.client.reactive.ReactorClientHttpConnector
 		 * ReactorClientHttpConnector}.
@@ -322,6 +340,23 @@ public interface WebClient {
 		Builder exchangeFunction(ExchangeFunction exchangeFunction);
 
 		/**
+		 * Provide an {@link ObservationRegistry} to use for recording
+		 * observations for HTTP client calls.
+		 * @param observationRegistry the observation registry to use
+		 * @since 6.0
+		 */
+		Builder observationRegistry(ObservationRegistry observationRegistry);
+
+		/**
+		 * Provide an {@link ObservationConvention} to use for collecting
+		 * metadata for the request observation. Will use {@link DefaultClientRequestObservationConvention}
+		 * if none provided.
+		 * @param observationConvention the observation convention to use
+		 * @since 6.0
+		 */
+		Builder observationConvention(ClientRequestObservationConvention observationConvention);
+
+		/**
 		 * Apply the given {@code Consumer} to this builder instance.
 		 * <p>This can be useful for applying pre-packaged customizations.
 		 * @param builderConsumer the consumer to apply
@@ -334,7 +369,7 @@ public interface WebClient {
 		Builder clone();
 
 		/**
-		 * Builder the {@link WebClient} instance.
+		 * Build the {@link WebClient} instance.
 		 */
 		WebClient build();
 	}
@@ -353,14 +388,14 @@ public interface WebClient {
 
 		/**
 		 * Specify the URI for the request using a URI template and URI variables.
-		 * If a {@link UriBuilderFactory} was configured for the client (e.g.
+		 * If a {@link UriBuilderFactory} was configured for the client (for example,
 		 * with a base URI) it will be used to expand the URI template.
 		 */
 		S uri(String uri, Object... uriVariables);
 
 		/**
 		 * Specify the URI for the request using a URI template and URI variables.
-		 * If a {@link UriBuilderFactory} was configured for the client (e.g.
+		 * If a {@link UriBuilderFactory} was configured for the client (for example,
 		 * with a base URI) it will be used to expand the URI template.
 		 */
 		S uri(String uri, Map<String, ?> uriVariables);
@@ -657,8 +692,37 @@ public interface WebClient {
 		 * @throws IllegalArgumentException if {@code body} is a
 		 * {@link Publisher} or producer known to {@link ReactiveAdapterRegistry}
 		 * @since 5.2
+		 * @see #bodyValue(Object, ParameterizedTypeReference)
 		 */
 		RequestHeadersSpec<?> bodyValue(Object body);
+
+		/**
+		 * Shortcut for {@link #body(BodyInserter)} with a
+		 * {@linkplain BodyInserters#fromValue value inserter}.
+		 * For example:
+		 * <p><pre class="code">
+		 * List&lt;Person&gt; list = ... ;
+		 *
+		 * Mono&lt;Void&gt; result = client.post()
+		 *     .uri("/persons/{id}", id)
+		 *     .contentType(MediaType.APPLICATION_JSON)
+		 *     .bodyValue(list, new ParameterizedTypeReference&lt;List&lt;Person&gt;&gt;() {};)
+		 *     .retrieve()
+		 *     .bodyToMono(Void.class);
+		 * </pre>
+		 * <p>For multipart requests consider providing
+		 * {@link org.springframework.util.MultiValueMap MultiValueMap} prepared
+		 * with {@link org.springframework.http.client.MultipartBodyBuilder
+		 * MultipartBodyBuilder}.
+		 * @param body the value to write to the request body
+		 * @param bodyType the type of the body, used to capture the generic type
+		 * @param <T> the type of the body
+		 * @return this builder
+		 * @throws IllegalArgumentException if {@code body} is a
+		 * {@link Publisher} or producer known to {@link ReactiveAdapterRegistry}
+		 * @since 6.2
+		 */
+		<T> RequestHeadersSpec<?> bodyValue(T body, ParameterizedTypeReference<T> bodyType);
 
 		/**
 		 * Shortcut for {@link #body(BodyInserter)} with a
@@ -760,14 +824,14 @@ public interface WebClient {
 		 *     .retrieve()
 		 *     .bodyToMono(Account.class)
 		 *     .onErrorResume(WebClientResponseException.class,
-		 *          ex -&gt; ex.getRawStatusCode() == 404 ? Mono.empty() : Mono.error(ex));
+		 *          ex -&gt; ex.getStatusCode().value() == 404 ? Mono.empty() : Mono.error(ex));
 		 * </pre>
 		 * @param statusPredicate to match responses with
 		 * @param exceptionFunction to map the response to an error signal
 		 * @return this builder
 		 * @see ClientResponse#createException()
 		 */
-		ResponseSpec onStatus(Predicate<HttpStatus> statusPredicate,
+		ResponseSpec onStatus(Predicate<HttpStatusCode> statusPredicate,
 				Function<ClientResponse, Mono<? extends Throwable>> exceptionFunction);
 
 		/**

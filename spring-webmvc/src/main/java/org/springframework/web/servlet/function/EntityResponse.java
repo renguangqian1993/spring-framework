@@ -28,7 +28,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.util.MultiValueMap;
 
@@ -102,7 +102,7 @@ public interface EntityResponse<T> extends ServerResponse {
 		 * @param status the response status
 		 * @return this builder
 		 */
-		Builder<T> status(HttpStatus status);
+		Builder<T> status(HttpStatusCode status);
 
 		/**
 		 * Set the HTTP status.
@@ -197,7 +197,7 @@ public interface EntityResponse<T> extends ServerResponse {
 		Builder<T> cacheControl(CacheControl cacheControl);
 
 		/**
-		 * Configure one or more request header names (e.g. "Accept-Language") to
+		 * Configure one or more request header names (for example, "Accept-Language") to
 		 * add to the "Vary" response header to inform clients that the response is
 		 * subject to content negotiation and variances based on the value of the
 		 * given request headers. The configured request header names are added only

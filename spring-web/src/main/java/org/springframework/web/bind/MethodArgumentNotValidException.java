@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,18 @@
 
 package org.springframework.web.bind;
 
+import java.util.Locale;
+
+import org.springframework.context.MessageSource;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.ErrorResponse;
+import org.springframework.web.util.BindErrorUtils;
 
 /**
  * Exception to be thrown when validation on an argument annotated with {@code @Valid} fails.
@@ -30,6 +35,7 @@ import org.springframework.web.ErrorResponse;
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
+ * @author Sebastien Deleuze
  * @since 3.1
  */
 @SuppressWarnings("serial")
@@ -48,13 +54,20 @@ public class MethodArgumentNotValidException extends BindException implements Er
 	public MethodArgumentNotValidException(MethodParameter parameter, BindingResult bindingResult) {
 		super(bindingResult);
 		this.parameter = parameter;
-		this.body = ProblemDetail.forRawStatusCode(getRawStatusCode()).withDetail("Invalid request content.");
+		this.body = ProblemDetail.forStatusAndDetail(getStatusCode(), "Invalid request content.");
 	}
 
 
+	/**
+	 * Return the method parameter that failed validation.
+	 */
+	public final MethodParameter getParameter() {
+		return this.parameter;
+	}
+
 	@Override
-	public int getRawStatusCode() {
-		return HttpStatus.BAD_REQUEST.value();
+	public HttpStatusCode getStatusCode() {
+		return HttpStatus.BAD_REQUEST;
 	}
 
 	@Override
@@ -62,11 +75,18 @@ public class MethodArgumentNotValidException extends BindException implements Er
 		return this.body;
 	}
 
-	/**
-	 * Return the method parameter that failed validation.
-	 */
-	public final MethodParameter getParameter() {
-		return this.parameter;
+	@Override
+	public Object[] getDetailMessageArguments(MessageSource source, Locale locale) {
+		return new Object[] {
+				BindErrorUtils.resolveAndJoin(getGlobalErrors(), source, locale),
+				BindErrorUtils.resolveAndJoin(getFieldErrors(), source, locale)};
+	}
+
+	@Override
+	public Object[] getDetailMessageArguments() {
+		return new Object[] {
+				BindErrorUtils.resolveAndJoin(getGlobalErrors()),
+				BindErrorUtils.resolveAndJoin(getFieldErrors())};
 	}
 
 	@Override

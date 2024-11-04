@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
@@ -192,7 +193,12 @@ final class HierarchicalUriComponents extends UriComponents {
 			throw new IllegalStateException(
 					"The port contains a URI variable but has not been expanded yet: " + this.port);
 		}
-		return Integer.parseInt(this.port);
+		try {
+			return Integer.parseInt(this.port);
+		}
+		catch (NumberFormatException ex) {
+			throw new IllegalStateException("The port must be an integer: " + this.port);
+		}
 	}
 
 	@Override
@@ -479,7 +485,7 @@ final class HierarchicalUriComponents extends UriComponents {
 			if (this.host != null) {
 				uriBuilder.append(this.host);
 			}
-			if (getPort() != -1) {
+			if (StringUtils.hasText(this.port) && !this.port.equals("-1")) {
 				uriBuilder.append(':').append(this.port);
 			}
 		}
@@ -533,7 +539,7 @@ final class HierarchicalUriComponents extends UriComponents {
 		if (getHost() != null) {
 			builder.host(getHost());
 		}
-		// Avoid parsing the port, may have URI variable..
+		// Avoid parsing the port, may have URI variable.
 		if (this.port != null) {
 			builder.port(this.port);
 		}
@@ -549,31 +555,20 @@ final class HierarchicalUriComponents extends UriComponents {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof HierarchicalUriComponents otherComp)) {
-			return false;
-		}
-		return (ObjectUtils.nullSafeEquals(getScheme(), otherComp.getScheme()) &&
-				ObjectUtils.nullSafeEquals(getUserInfo(), otherComp.getUserInfo()) &&
-				ObjectUtils.nullSafeEquals(getHost(), otherComp.getHost()) &&
-				getPort() == otherComp.getPort() &&
-				this.path.equals(otherComp.path) &&
-				this.queryParams.equals(otherComp.queryParams) &&
-				ObjectUtils.nullSafeEquals(getFragment(), otherComp.getFragment()));
+		return (this == other || (other instanceof HierarchicalUriComponents that &&
+				ObjectUtils.nullSafeEquals(getScheme(), that.getScheme()) &&
+				ObjectUtils.nullSafeEquals(getUserInfo(), that.getUserInfo()) &&
+				ObjectUtils.nullSafeEquals(getHost(), that.getHost()) &&
+				getPort() == that.getPort() &&
+				this.path.equals(that.path) &&
+				this.queryParams.equals(that.queryParams) &&
+				ObjectUtils.nullSafeEquals(getFragment(), that.getFragment())));
 	}
 
 	@Override
 	public int hashCode() {
-		int result = ObjectUtils.nullSafeHashCode(getScheme());
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.userInfo);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.host);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.port);
-		result = 31 * result + this.path.hashCode();
-		result = 31 * result + this.queryParams.hashCode();
-		result = 31 * result + ObjectUtils.nullSafeHashCode(getFragment());
-		return result;
+		return Objects.hash(getScheme(), this.userInfo, this.host, this.port,
+				this.path, this.queryParams, getFragment());
 	}
 
 
@@ -595,25 +590,25 @@ final class HierarchicalUriComponents extends UriComponents {
 		AUTHORITY {
 			@Override
 			public boolean isAllowed(int c) {
-				return isUnreserved(c) || isSubDelimiter(c) || ':' == c || '@' == c;
+				return (isUnreservedOrSubDelimiter(c) || ':' == c || '@' == c);
 			}
 		},
 		USER_INFO {
 			@Override
 			public boolean isAllowed(int c) {
-				return isUnreserved(c) || isSubDelimiter(c) || ':' == c;
+				return (isUnreservedOrSubDelimiter(c) || ':' == c);
 			}
 		},
 		HOST_IPV4 {
 			@Override
 			public boolean isAllowed(int c) {
-				return isUnreserved(c) || isSubDelimiter(c);
+				return isUnreservedOrSubDelimiter(c);
 			}
 		},
 		HOST_IPV6 {
 			@Override
 			public boolean isAllowed(int c) {
-				return isUnreserved(c) || isSubDelimiter(c) || '[' == c || ']' == c || ':' == c;
+				return (isUnreservedOrSubDelimiter(c) || '[' == c || ']' == c || ':' == c);
 			}
 		},
 		PORT {
@@ -625,7 +620,7 @@ final class HierarchicalUriComponents extends UriComponents {
 		PATH {
 			@Override
 			public boolean isAllowed(int c) {
-				return isPchar(c) || '/' == c;
+				return (isPchar(c) || '/' == c);
 			}
 		},
 		PATH_SEGMENT {
@@ -637,7 +632,7 @@ final class HierarchicalUriComponents extends UriComponents {
 		QUERY {
 			@Override
 			public boolean isAllowed(int c) {
-				return isPchar(c) || '/' == c || '?' == c;
+				return (isPchar(c) || '/' == c || '?' == c);
 			}
 		},
 		QUERY_PARAM {
@@ -647,14 +642,14 @@ final class HierarchicalUriComponents extends UriComponents {
 					return false;
 				}
 				else {
-					return isPchar(c) || '/' == c || '?' == c;
+					return (isPchar(c) || '/' == c || '?' == c);
 				}
 			}
 		},
 		FRAGMENT {
 			@Override
 			public boolean isAllowed(int c) {
-				return isPchar(c) || '/' == c || '?' == c;
+				return (isPchar(c) || '/' == c || '?' == c);
 			}
 		},
 		URI {
@@ -663,6 +658,15 @@ final class HierarchicalUriComponents extends UriComponents {
 				return isUnreserved(c);
 			}
 		};
+
+		private static final boolean[] unreservedOrSubDelimiterArray = new boolean[128];
+
+		static {
+			for (int i = 0; i < 128; i++) {
+				char c = (char) i;
+				unreservedOrSubDelimiterArray[i] = (URI.isUnreserved(c) || URI.isSubDelimiter(c));
+			}
+		}
 
 		/**
 		 * Indicates whether the given character is allowed in this URI component.
@@ -699,8 +703,8 @@ final class HierarchicalUriComponents extends UriComponents {
 		 * @see <a href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986, appendix A</a>
 		 */
 		protected boolean isSubDelimiter(int c) {
-			return ('!' == c || '$' == c || '&' == c || '\'' == c || '(' == c || ')' == c || '*' == c || '+' == c ||
-					',' == c || ';' == c || '=' == c);
+			return ('!' == c || '$' == c || '&' == c || '\'' == c ||
+					'(' == c || ')' == c || '*' == c || '+' == c || ',' == c || ';' == c || '=' == c);
 		}
 
 		/**
@@ -724,8 +728,16 @@ final class HierarchicalUriComponents extends UriComponents {
 		 * @see <a href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986, appendix A</a>
 		 */
 		protected boolean isPchar(int c) {
-			return (isUnreserved(c) || isSubDelimiter(c) || ':' == c || '@' == c);
+			return (isUnreservedOrSubDelimiter(c) || ':' == c || '@' == c);
 		}
+
+		/**
+		 * Combined check whether a character is unreserved or a sub-delimiter.
+		 */
+		protected boolean isUnreservedOrSubDelimiter(int c) {
+			return (c < unreservedOrSubDelimiterArray.length && c >= 0 && unreservedOrSubDelimiterArray[c]);
+		}
+
 	}
 
 
@@ -756,7 +768,7 @@ final class HierarchicalUriComponents extends UriComponents {
 	}
 
 
-	private static class UriTemplateEncoder	implements BiFunction<String, Type, String> {
+	private static class UriTemplateEncoder implements BiFunction<String, Type, String> {
 
 		private final Charset charset;
 
@@ -827,7 +839,7 @@ final class HierarchicalUriComponents extends UriComponents {
 		 * Whether the given String is a single URI variable that can be
 		 * expanded. It must have '{' and '}' surrounding non-empty text and no
 		 * nested placeholders unless it is a variable with regex syntax,
-		 * e.g. {@code "/{year:\d{1,4}}"}.
+		 * for example, {@code "/{year:\d{1,4}}"}.
 		 */
 		private boolean isUriVariable(CharSequence source) {
 			if (source.length() < 2 || source.charAt(0) != '{' || source.charAt(source.length() -1) != '}') {
@@ -944,7 +956,7 @@ final class HierarchicalUriComponents extends UriComponents {
 
 		public PathSegmentComponent(List<String> pathSegments) {
 			Assert.notNull(pathSegments, "List must not be null");
-			this.pathSegments = Collections.unmodifiableList(new ArrayList<>(pathSegments));
+			this.pathSegments = List.copyOf(pathSegments);
 		}
 
 		@Override
@@ -1082,6 +1094,7 @@ final class HierarchicalUriComponents extends UriComponents {
 		}
 
 		@Override
+		@Nullable
 		public Object getValue(@Nullable String name) {
 			Object value = this.delegate.getValue(name);
 			if (ObjectUtils.isArray(value)) {

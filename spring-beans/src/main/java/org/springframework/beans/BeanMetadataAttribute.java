@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ import org.springframework.util.ObjectUtils;
 
 /**
  * Holder for a key-value style attribute that is part of a bean definition.
- * Keeps track of the definition source in addition to the key-value pair.
+ *
+ * <p>Keeps track of the definition source in addition to the key-value pair.
  *
  * @author Juergen Hoeller
  * @since 2.5
@@ -39,7 +40,7 @@ public class BeanMetadataAttribute implements BeanMetadataElement {
 
 
 	/**
-	 * Create a new AttributeValue instance.
+	 * Create a new {@code AttributeValue} instance.
 	 * @param name the name of the attribute (never {@code null})
 	 * @param value the value of the attribute (possibly before type conversion)
 	 */
@@ -82,25 +83,20 @@ public class BeanMetadataAttribute implements BeanMetadataElement {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof BeanMetadataAttribute otherMa)) {
-			return false;
-		}
-		return (this.name.equals(otherMa.name) &&
-				ObjectUtils.nullSafeEquals(this.value, otherMa.value) &&
-				ObjectUtils.nullSafeEquals(this.source, otherMa.source));
+		return (this == other ||(other instanceof BeanMetadataAttribute that &&
+				this.name.equals(that.name) &&
+				ObjectUtils.nullSafeEquals(this.value, that.value) &&
+				ObjectUtils.nullSafeEquals(this.source, that.source)));
 	}
 
 	@Override
 	public int hashCode() {
-		return this.name.hashCode() * 29 + ObjectUtils.nullSafeHashCode(this.value);
+		return ObjectUtils.nullSafeHash(this.name, this.value);
 	}
 
 	@Override
 	public String toString() {
-		return "metadata attribute '" + this.name + "'";
+		return "metadata attribute: name='" + this.name + "'; value=" + this.value;
 	}
 
 }

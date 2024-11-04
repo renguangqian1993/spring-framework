@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,14 +38,13 @@ import org.springframework.util.MimeType;
  * {@link #decodeToMono} applies "reduce" and transforms the aggregated buffer.
  *
  * <p>Sub-classes can override {@link #decode} in order to split the input stream
- * along different boundaries (e.g. on new line characters for {@code String})
- * or always reduce to a single data buffer (e.g. {@code Resource}).
+ * along different boundaries (for example, on new line characters for {@code String})
+ * or always reduce to a single data buffer (for example, {@code Resource}).
  *
  * @author Rossen Stoyanchev
  * @since 5.0
  * @param <T> the element type
  */
-@SuppressWarnings("deprecation")
 public abstract class AbstractDataBufferDecoder<T> extends AbstractDecoder<T> {
 
 	private int maxInMemorySize = 256 * 1024;
@@ -62,7 +61,7 @@ public abstract class AbstractDataBufferDecoder<T> extends AbstractDecoder<T> {
 	 * decoding to a single {@code DataBuffer},
 	 * {@link java.nio.ByteBuffer ByteBuffer}, {@code byte[]},
 	 * {@link org.springframework.core.io.Resource Resource}, {@code String}, etc.
-	 * It can also occur when splitting the input stream, e.g. delimited text,
+	 * It can also occur when splitting the input stream, for example, delimited text,
 	 * in which case the limit applies to data buffered between delimiters.
 	 * <p>By default this is set to 256K.
 	 * @param byteCount the max number of bytes to buffer, or -1 for unlimited

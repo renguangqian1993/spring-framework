@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ import org.springframework.util.StringUtils;
  *
  * <p>This transaction manager is appropriate for handling distributed transactions,
  * i.e. transactions that span multiple resources, and for controlling transactions on
- * application server resources (e.g. JDBC DataSources available in JNDI) in general.
+ * application server resources (for example, JDBC DataSources available in JNDI) in general.
  * For a single JDBC DataSource, DataSourceTransactionManager is perfectly sufficient,
  * and for accessing a single resource with Hibernate (including transactional cache),
  * HibernateTransactionManager is appropriate, for example.
@@ -92,7 +92,7 @@ import org.springframework.util.StringUtils;
  * API in addition to the standard JTA UserTransaction handle. As of Spring 2.5, this
  * JtaTransactionManager autodetects the TransactionSynchronizationRegistry and uses
  * it for registering Spring-managed synchronizations when participating in an existing
- * JTA transaction (e.g. controlled by EJB CMT). If no TransactionSynchronizationRegistry
+ * JTA transaction (for example, controlled by EJB CMT). If no TransactionSynchronizationRegistry
  * is available, then such synchronizations will be registered via the (non-EE) JTA
  * TransactionManager handle.
  *
@@ -420,7 +420,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * <p>Default is "false", throwing an exception if a non-default isolation level
 	 * is specified for a transaction. Turn this flag on if affected resource adapters
 	 * check the thread-bound transaction context and apply the specified isolation
-	 * levels individually (e.g. through an IsolationLevelDataSourceAdapter).
+	 * levels individually (for example, through an IsolationLevelDataSourceAdapter).
 	 * @see org.springframework.jdbc.datasource.IsolationLevelDataSourceAdapter
 	 * @see org.springframework.jdbc.datasource.lookup.IsolationLevelDataSourceRouter
 	 */
@@ -547,8 +547,8 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * @return a corresponding UserTransaction handle
 	 */
 	protected UserTransaction buildUserTransaction(TransactionManager transactionManager) {
-		if (transactionManager instanceof UserTransaction) {
-			return (UserTransaction) transactionManager;
+		if (transactionManager instanceof UserTransaction ut) {
+			return ut;
 		}
 		else {
 			return new UserTransactionAdapter(transactionManager);
@@ -702,11 +702,11 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 */
 	@Nullable
 	protected TransactionManager findTransactionManager(@Nullable UserTransaction ut) {
-		if (ut instanceof TransactionManager) {
+		if (ut instanceof TransactionManager tm) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("JTA UserTransaction object [" + ut + "] implements TransactionManager");
 			}
-			return (TransactionManager) ut;
+			return tm;
 		}
 
 		// Check fallback JNDI locations.
@@ -762,11 +762,11 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 			}
 		}
 		// Check whether the UserTransaction or TransactionManager implements it...
-		if (ut instanceof TransactionSynchronizationRegistry) {
-			return (TransactionSynchronizationRegistry) ut;
+		if (ut instanceof TransactionSynchronizationRegistry tsr) {
+			return tsr;
 		}
-		if (tm instanceof TransactionSynchronizationRegistry) {
-			return (TransactionSynchronizationRegistry) tm;
+		if (tm instanceof TransactionSynchronizationRegistry tsr) {
+			return tsr;
 		}
 		// OK, so no JTA 1.1 TransactionSynchronizationRegistry is available...
 		return null;
